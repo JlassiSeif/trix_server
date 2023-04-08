@@ -33,7 +33,7 @@ int main()
     sockaddr_in address{};
     address.sin_family = AF_INET;
     address.sin_addr.s_addr = inet_addr("0.0.0.0");
-    address.sin_port = htons(80);
+    address.sin_port = htons(8080);
 
     if (bind(server_fd, (struct sockaddr *)&address, sizeof(address)) < 0)
     {
