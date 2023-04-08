@@ -74,7 +74,7 @@ bool logic::step()
         state = states::RESET_HANDS;
         for (int i = 0; i < 4; ++i)
         {
-            if (scores[i] > 1000)
+            if (scores[i] > 2000)
                 return 1;
         }
         break;
@@ -118,7 +118,7 @@ void logic::pick_game()
         }
         send(client_fds[i], message.c_str(), strlen(message.c_str()), 0);
     }
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    std::this_thread::sleep_for(std::chrono::milliseconds(200));
     char buffer[1024] = {""};
     int bytes_received = recv(client_fds[chosen_fil_games], buffer, sizeof(buffer), 0);
     if (bytes_received <= 0)
@@ -131,7 +131,7 @@ void logic::pick_game()
     {
         send(client_fds[i], l.c_str(), strlen(l.c_str()), 0);
     }
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    std::this_thread::sleep_for(std::chrono::milliseconds(200));
 }
 
 bool logic::pli()
@@ -162,7 +162,7 @@ bool logic::pli()
                 ++hala;
             }
         }
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        std::this_thread::sleep_for(std::chrono::milliseconds(200));
 
         char buffer[1024] = {""};
         int bytes_received = recv(client_fds[index], buffer, sizeof(buffer), 0);
@@ -175,7 +175,7 @@ bool logic::pli()
                 std::string rata = "strong_suit," + played;
                 send(client_fds[i], rata.c_str(), strlen(rata.c_str()), 0);
             }
-            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            std::this_thread::sleep_for(std::chrono::milliseconds(200));
             FIRST_CARD = 0;
         }
         played_cards.push_back(played);
@@ -190,7 +190,7 @@ bool logic::pli()
             send(client_fds[client_index], rata.c_str(), strlen(rata.c_str()), 0);
             ++j;
         }
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        std::this_thread::sleep_for(std::chrono::milliseconds(200));
     }
     chosen_fil_pli = (chosen_fil_pli + m_deck.decide_mekla(played_cards)) % 4;
     for (auto el : played_cards)
@@ -213,7 +213,7 @@ bool logic::pli()
         send(client_fds[i], rata.c_str(), strlen(rata.c_str()), 0);
     }
     played_cards.clear();
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    std::this_thread::sleep_for(std::chrono::milliseconds(200));
     return 0;
 }
 int calculate_score(std::vector<card> &cards, const std::string &game_type, bool cond)
@@ -246,7 +246,7 @@ int calculate_score(std::vector<card> &cards, const std::string &game_type, bool
         {
             if (card.c_rank == Rank::KING && card.c_suit == Suit::HEARTS)
             {
-                score += 100;
+                score += 200;
             }
         }
     }
@@ -263,14 +263,14 @@ int calculate_score(std::vector<card> &cards, const std::string &game_type, bool
     {
         if (cond)
         {
-            score = 100;
+            score = 200;
         }
     }
     else if (game_type == "trix")
     {
         if (cond)
         {
-            score = 100;
+            score = 200;
         }
     }
     return score;
@@ -309,7 +309,7 @@ int logic::get_score(int index)
         {
             if (card.c_rank == Rank::KING && card.c_suit == Suit::HEARTS)
             {
-                score += 100;
+                score += 200;
             }
         }
     }
@@ -326,7 +326,7 @@ int logic::get_score(int index)
     {
         if (index == chosen_fil_pli)
         {
-            score = 100;
+            score = 200;
         }
     }
     else if (game_type == "general")
