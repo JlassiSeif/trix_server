@@ -1,0 +1,6 @@
+# build output
+server/server
+client-sdl/prog
+client-sdl/myprogram
+*.o
+a.out
