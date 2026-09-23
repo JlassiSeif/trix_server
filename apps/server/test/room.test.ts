@@ -274,3 +274,31 @@ describe("hub robustness", () => {
     expect(c.errors()).toEqual(["BAD_MESSAGE", "BAD_MESSAGE", "BAD_MESSAGE", "BAD_MESSAGE", "BAD_MESSAGE", "NOT_SEATED", "NOT_SEATED", "ROOM_NOT_FOUND"]);
   });
 });
+
+describe("found by the testing station (2026-09-23)", () => {
+  it("S11: a refused createRoom or joinRoom never pulls a seated player out of their table", () => {
+    const { owner, room } = createRoom();
+    for (const s of [1, 2, 3]) send(owner, { type: "addBot", seat: s });
+    expect(room.status).toBe("playing");
+    send(owner, { type: "createRoom", name: 12 });
+    send(owner, { type: "joinRoom", roomId: room.id, invite: "bad", name: "x" });
+    send(owner, { type: "joinRoom", roomId: "nothere", invite: "x", name: "x" });
+    expect(owner.errors()).toEqual(["BAD_NAME", "ALREADY_SEATED", "ROOM_NOT_FOUND"]);
+    expect(room.status).toBe("playing");
+    expect(room.seatOf(owner)).toBe(0);
+    // And a seated player can still act.
+    const g = room.game!;
+    if (g.turn === 0) send(owner, { type: "action", action: placeholderBotAction(g, 0) });
+    expect(owner.errors()).toHaveLength(3);
+  });
+
+  it("S11: creating a new room on purpose moves the player there and frees their old seat", () => {
+    const { owner, room } = createRoom();
+    const guest = new FakeConn();
+    send(guest, { type: "joinRoom", roomId: room.id, invite: invite(owner), name: "Ali" });
+    send(guest, { type: "createRoom", name: "Ali's table" });
+    const moved = guest.last("joined");
+    expect(moved.roomId).not.toBe(room.id);
+    expect(owner.last("update").room.seats[1]).toMatchObject({ name: "Ali", connected: false });
+  });
+});

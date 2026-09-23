@@ -4,7 +4,10 @@
 
 import type { Action, GameEvent, PlayerView, Seat } from "@trix/engine";
 
-export type ClientMessage =
+/** Any message may carry an `id`; an error caused by it echoes that id as `re`. */
+export type ClientMessage = ClientRequest & { id?: number };
+
+export type ClientRequest =
   /** Create a room and take seat 0 as its owner (R-TABLE-2). */
   | { type: "createRoom"; name: string }
   /** Join with an invite (new player) or a seat token (returning player, R-TABLE-5). */
@@ -55,7 +58,8 @@ export type ServerMessage =
   /** You have a seat. Keep the token: it brings you back to the same seat (R-TABLE-5). */
   | { type: "joined"; roomId: string; seat: Seat; token: string }
   | { type: "update"; room: RoomView; game: PlayerView | null; events: GameEvent[] }
-  | { type: "error"; code: string; message: string }
+  /** `re` is the `id` of the message that caused it, when that message had one. */
+  | { type: "error"; code: string; message: string; re?: number }
   /** You were removed from the room (kicked, or you left). */
   | { type: "removed"; reason: "kicked" | "left" | "roomClosed" };
 

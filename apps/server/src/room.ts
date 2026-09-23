@@ -14,6 +14,7 @@ import {
   type Seat,
 } from "@trix/engine";
 import { CONTINUE_SECONDS, NAME_MAX, type RoomStatus, type RoomView, type ServerMessage } from "@trix/protocol";
+import { log } from "./log";
 
 /** One player's connection. The WebSocket in production, a fake in tests. */
 export interface Conn {
@@ -73,12 +74,14 @@ export class Room {
   private botTimer: ReturnType<typeof setTimeout> | null = null;
   private continueTimer: ReturnType<typeof setTimeout> | null = null;
   private closed = false;
+  private lastStatus: RoomStatus = "lobby";
 
   constructor(
     id: string,
     private readonly hooks: { onClose?: (room: Room) => void; seed?: () => number } = {},
   ) {
     this.id = id;
+    log("info", "room.created", { room: id });
   }
 
   // -------------------------------------------------------------------------
@@ -127,8 +130,10 @@ export class Room {
     if (seat === undefined && this.game) seat = SEATS.find((s) => this.seats[s]?.vacant);
     if (seat === undefined) throw new RoomError("ROOM_FULL", "The table is full");
     const token = newToken();
+    const replacing = this.seats[seat]?.kind === "bot";
     this.seats[seat] = { kind: "human", name, token, conn, botPlaying: false, vacant: false };
     if (creating) this.owner = seat;
+    log("info", "seat.joined", { room: this.id, seat, name, owner: creating, replacingBot: replacing, inGame: !!this.game });
     conn.send({ type: "joined", roomId: this.id, seat, token });
     this.changed([]);
     this.startIfFull();
@@ -140,6 +145,7 @@ export class Room {
     const seat = SEATS.find((s) => typeof token === "string" && this.seats[s]?.token === token);
     if (seat === undefined) throw new RoomError("BAD_TOKEN", "That seat is no longer yours");
     const st = this.seats[seat]!;
+    log("info", "seat.reconnected", { room: this.id, seat, replacedOpenConnection: !!st.conn && st.conn !== conn, wasBotPlaying: st.botPlaying });
     if (st.conn && st.conn !== conn) {
       // Same player, new tab: the old tab is dropped.
       st.conn.send({ type: "error", code: "REPLACED", message: "This seat was opened in another tab" });
@@ -156,6 +162,7 @@ export class Room {
     const seat = this.seatOf(conn);
     if (seat === null) return;
     this.seats[seat]!.conn = null;
+    log("info", "seat.disconnected", { room: this.id, seat, phase: this.game?.phase ?? "lobby" });
     this.changed([]); // pauses the game if it needs this player (R-TABLE-4)
     if (this.humans().every((s) => !this.seats[s]!.conn)) this.lastActive = Date.now();
   }
@@ -165,6 +172,7 @@ export class Room {
     const st = this.seats[seat];
     if (!st) return;
     this.seats[seat] = null;
+    log("info", "seat.vacated", { room: this.id, seat, reason, kind: st.kind, phase: this.game?.phase ?? "lobby" });
     this.continued.delete(seat);
     this.ready.delete(seat);
     if (st.conn) {
@@ -184,6 +192,7 @@ export class Room {
     if (this.closed) return;
     this.closed = true;
     this.clearTimers();
+    log("info", "room.closed", { room: this.id });
     for (const s of SEATS) {
       const conn = this.seats[s]?.conn;
       if (conn) {
@@ -214,7 +223,11 @@ export class Room {
       case "action": {
         if (!this.game || this.status !== "playing") throw new RoomError("NOT_PLAYING", "The game is not running right now");
         const r = applyAction(this.game, seat, msg.action);
-        if (!r.ok) throw new RoomError(r.error.code, r.error.message);
+        if (!r.ok) {
+          log("info", "action.rejected", { room: this.id, seat, code: r.error.code, action: msg.action, phase: this.game.phase, turn: this.game.turn });
+          throw new RoomError(r.error.code, r.error.message);
+        }
+        log("debug", "action.accepted", { room: this.id, seat, action: msg.action });
         this.game = r.state;
         this.changed(r.events);
         return;
@@ -240,6 +253,7 @@ export class Room {
         if (this.seats[s]) throw new RoomError("SEAT_TAKEN", "That seat is taken");
         const botNo = SEATS.filter((i) => this.seats[i]?.kind === "bot").length + 1;
         this.seats[s] = { kind: "bot", name: `Bot ${botNo}`, token: null, conn: null, botPlaying: false, vacant: true };
+        log("info", "seat.botAdded", { room: this.id, seat: s });
         this.changed([]);
         this.startIfFull();
         return;
@@ -258,6 +272,7 @@ export class Room {
           const st = this.seats[s];
           if (st) st.botPlaying = true;
           else this.seats[s] = { kind: "bot", name: "Bot", token: null, conn: null, botPlaying: false, vacant: true };
+          log("info", "seat.botStandIn", { room: this.id, seat: s, forPlayer: st?.name ?? null });
         }
         this.changed([]);
         return;
@@ -289,6 +304,7 @@ export class Room {
   private startGame(): void {
     const seed = this.hooks.seed ? this.hooks.seed() : randomInt(2 ** 31);
     this.game = createGame({ seed });
+    log("info", "game.started", { room: this.id, seed, firstPicker: this.game.picker, seats: this.seats.map((s) => s && { kind: s.kind, name: s.name }) });
     this.resetBetweenGames();
     this.changed([{ type: "dealt", contractNo: 1, picker: this.game.picker }]);
   }
@@ -322,6 +338,19 @@ export class Room {
     if (this.closed) return;
     // Start the between-contracts countdown before telling anyone, so they all see it.
     if (this.game?.phase === "contractEnd" && this.continueAt === null) this.continueAt = Date.now() + TIMING.continueMs;
+    for (const e of events) {
+      if (e.type === "contractScored") {
+        const r = e.result;
+        log("info", "contract.scored", { room: this.id, contractNo: r.contractNo, contract: r.contract, picker: r.picker, raw: r.raw, scores: r.scores, totals: r.totals, resets: r.resetToZero });
+      } else if (e.type === "gameOver") {
+        log("info", "game.over", { room: this.id, reason: e.standings.reason, totals: e.standings.totals, losers: e.standings.losers });
+      }
+    }
+    const status = this.status;
+    if (status !== this.lastStatus) {
+      log("info", "room.status", { room: this.id, from: this.lastStatus, to: status, waitingFor: this.waitingFor() });
+      this.lastStatus = status;
+    }
     this.broadcast(events);
     this.schedule(events);
   }
@@ -353,7 +382,12 @@ export class Room {
     const action = placeholderBotAction(this.game, seat);
     if (!action) return;
     const r = applyAction(this.game, seat, action);
-    if (!r.ok) return; // cannot happen: the bot only picks legal actions (R-BOT-1)
+    if (!r.ok) {
+      // Cannot happen: the bot only picks legal actions (R-BOT-1). Logged loudly if it ever does.
+      log("error", "bot.illegalMove", { room: this.id, seat, action, code: r.error.code });
+      return;
+    }
+    log("debug", "bot.move", { room: this.id, seat, action });
     this.game = r.state;
     this.changed(r.events);
   }

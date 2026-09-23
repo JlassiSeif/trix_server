@@ -23,11 +23,16 @@ npm run typecheck
 
 End-to-end: run a built server with fast bots (`TRIX_SPEED=10 PORT=8123 npm start`), then `npm run e2e -- --base http://127.0.0.1:8123`. It plays a whole game in Chromium through the UI and saves screenshots to `e2e-out/`. `npm run e2e:timed -- --base URL` checks, at normal bot speed, that banners, the completed trick and the last-trick look go away on their own. If Playwright's own Chromium isn't installed, point `CHROMIUM=` at a Chrome/Chromium binary.
 
+Bug hunt: `npm run station` plays hundreds of games over the real protocol with simulated players (normal play, stress, disconnects, hostile input), checks every move with an independent referee, and writes a report to `.station-runs/`. See [docs/testing-station.md](docs/testing-station.md).
+
+Server logs are JSON lines (`TRIX_LOG_LEVEL=debug|info|warn|error`); `/api/stats` shows rooms, sockets and memory.
+
 ## Layout
 
 - `packages/engine`: the rules (a pure state machine), tested against the rule IDs in RULES.md
 - `packages/protocol`: messages between browser and server
 - `apps/server`: Node + WebSocket; rooms, seats, bots, timers
+- `tools/station`: the testing station (simulated players, referee, scenarios, mutation check)
 - `apps/web`: React + Vite client. Cards and contract icons come from the old client's assets.
 - `archive/`: the 2023 C++ server, SDL client and prototype (reference only)
 

@@ -8,6 +8,8 @@ import { WebSocketServer, type WebSocket } from "ws";
 import { ENGINE_VERSION } from "@trix/engine";
 import type { ServerMessage } from "@trix/protocol";
 import { Hub } from "./hub";
+import { RateLimiter } from "./limiter";
+import { log } from "./log";
 import { TIMING, type Conn } from "./room";
 
 const PORT = Number(process.env.PORT ?? 8080);
@@ -49,6 +51,14 @@ async function serveStatic(req: IncomingMessage, res: ServerResponse): Promise<v
 }
 
 const server = createServer((req, res) => {
+  if (req.url === "/api/stats") {
+    // Counts only, nothing about players: used by the testing station to spot leaks.
+    const m = process.memoryUsage();
+    res.writeHead(200, { "content-type": "application/json" }).end(
+      JSON.stringify({ rooms: hub.rooms.size, sockets: wss.clients.size, heapUsedMb: +(m.heapUsed / 1e6).toFixed(1), rssMb: +(m.rss / 1e6).toFixed(1) }),
+    );
+    return;
+  }
   if (req.url === "/api/health") {
     res.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify({ ok: true, engine: ENGINE_VERSION }));
     return;
@@ -63,13 +73,16 @@ const server = createServer((req, res) => {
 const speed = Number(process.env.TRIX_SPEED ?? 1);
 if (speed > 1) for (const k of Object.keys(TIMING) as (keyof typeof TIMING)[]) TIMING[k] = Math.round(TIMING[k] / speed);
 
+const RATE = { perSecond: 40, burst: 80 };
+
 const hub = new Hub();
 setInterval(() => hub.sweep(), 10 * 60 * 1000).unref();
 
 const wss = new WebSocketServer({ server, path: "/ws", maxPayload: 4096 });
 const alive = new WeakMap<WebSocket, boolean>();
 
-wss.on("connection", (socket) => {
+wss.on("connection", (socket, req) => {
+  log("debug", "ws.open", { ip: req.socket.remoteAddress });
   const conn: Conn = {
     send: (msg: ServerMessage) => {
       if (socket.readyState === socket.OPEN) socket.send(JSON.stringify(msg));
@@ -78,9 +91,29 @@ wss.on("connection", (socket) => {
   };
   alive.set(socket, true);
   socket.on("pong", () => alive.set(socket, true));
-  socket.on("message", (data) => hub.receive(conn, data.toString()));
-  socket.on("close", () => hub.disconnected(conn));
-  socket.on("error", () => socket.terminate());
+  // A player sends a few messages a second. A flood gets cut off before it can slow the
+  // server down for every other table, and is logged once rather than once per message.
+  const limiter = new RateLimiter(RATE.perSecond, RATE.burst);
+  let cutOff = false;
+  socket.on("message", (data) => {
+    if (cutOff) return;
+    if (!limiter.take()) {
+      cutOff = true;
+      log("warn", "ws.rateLimited", { ip: req.socket.remoteAddress, room: hub.roomIdOf(conn) });
+      conn.send({ type: "error", code: "RATE_LIMITED", message: "Too many messages: disconnected" });
+      socket.close(1008, "rate limited");
+      return;
+    }
+    hub.receive(conn, data.toString());
+  });
+  socket.on("close", (code) => {
+    log("debug", "ws.close", { code });
+    hub.disconnected(conn);
+  });
+  socket.on("error", (e) => {
+    log("warn", "ws.error", { error: e.message });
+    socket.terminate();
+  });
 });
 
 // A dropped phone or wifi often never sends a close: ping every 15 s and drop silent sockets,
@@ -88,6 +121,7 @@ wss.on("connection", (socket) => {
 setInterval(() => {
   for (const socket of wss.clients) {
     if (!alive.get(socket)) {
+      log("info", "ws.heartbeatTimeout", {});
       socket.terminate();
       continue;
     }
@@ -96,8 +130,11 @@ setInterval(() => {
   }
 }, 15_000).unref();
 
-process.on("uncaughtException", (e) => console.error("Uncaught exception (server keeps running):", e));
+process.on("uncaughtException", (e) => log("error", "process.uncaughtException", { error: e }));
+process.on("unhandledRejection", (e) => log("error", "process.unhandledRejection", { error: e }));
 
 server.listen(PORT, HOST, () => {
-  console.log(`trix server on http://${HOST}:${PORT} (web: ${WEB_DIST})`);
+  const addr = server.address();
+  const port = typeof addr === "object" && addr ? addr.port : PORT;
+  log("info", "server.listening", { url: `http://${HOST}:${port}`, port, web: WEB_DIST, speed });
 });

@@ -1,0 +1,14 @@
+{
+  "name": "@trix/station",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@trix/engine": "0.0.0",
+    "@trix/protocol": "0.0.0",
+    "ws": "8.21.3"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json"
+  }
+}
