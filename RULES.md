@@ -1,6 +1,6 @@
 # Trix: rules (the spec)
 
-**Status: DRAFT, not yet approved by Seif.**
+**Status: APPROVED by Seif, 2026-09-23.** Any change after this needs Seif's OK and a dated note in the changelog at the bottom.
 Sources: [docs/rules-input.md](docs/rules-input.md) (Seif's description, verbatim) plus the Q&A of 2026-09-23.
 The engine implements only what's written here. Every rule has an ID that the tests cite. Points marked **OPEN** are undecided and must not be implemented until they're answered.
 
@@ -94,16 +94,22 @@ The engine implements only what's written here. Every rule has an ID that the te
 - **R-TABLE-1:** One table of 4. A room is joined through an invite link; each player picks a name and takes a seat.
 - **R-TABLE-2:** The player who creates the room is the **room owner**.
 - **R-TABLE-3:** The game starts **automatically** as soon as the 4th player is seated.
-- **R-TABLE-4:** If a player disconnects mid-game, the table **pauses** until they come back (same seat, same hand, same score).
-- **R-TABLE-5:** While the table is paused, the room owner can:
-  1. **Give the seat to someone new:** a new person joins through the invite link and takes over the seat (its hand, score and remaining contracts), and the game resumes.
-  2. **Resume without waiting:** the empty seat is played by the **safe bot** (R-BOT) until its player returns.
+- **R-TABLE-4:** If a player **disconnects** mid-game (network drop, closed tab), the table **pauses** until they come back.
+- **R-TABLE-5:** A disconnected player who returns (reopens the link in the same browser) takes their seat back immediately (same hand, score and remaining contracts), even if the bot is playing it.
+- **R-TABLE-6:** A player can **leave** the table, and the room owner can **kick** any player at any time. Both are handled the same way:
+  1. The seat becomes empty, and the table pauses.
+  2. A **new invite link** is generated, and the old link stops working. The player who left or was kicked cannot reclaim the seat.
+  3. The room owner copies the new link and sends it to whoever should take the seat.
+- **R-TABLE-7:** While the table is paused (a disconnect or an empty seat), the room owner can:
+  1. **Wait for a replacement:** a new person joins through the invite link and takes over the empty seat (its hand, score and remaining contracts), and the game resumes.
+  2. **Resume without waiting:** the missing seat is played by the placeholder bot (R-BOT) until someone takes it.
   3. **End the game.**
-- **R-TABLE-6:** The room owner can **kick** any player at any time. The kicked player's seat becomes empty, and the table pauses as in R-TABLE-4. **OPEN:** can a kicked player reclaim their seat by reopening the link (R-TABLE-7), or are they locked out?
-- **R-TABLE-7:** A player who returns (reopens the link in the same browser) takes their seat back immediately, even if the bot is playing it.
 - **R-TABLE-8:** After the game ends, each player can click **Ready**. The next game starts when all 4 are ready. Seats stay the same, and the first picker is random again (R-SEAT-2).
 - **R-TABLE-9:** The interface is in **English** for now. Contracts are shown as `dineri`, `damet`, `pli`, `farcha`, `ray`, `general`, `trix`.
 
-## 8. Safe bot (plays an empty seat when the owner resumes without waiting)
+## 8. Placeholder bot (plays a missing seat when the owner resumes without waiting)
 - **R-BOT-1:** The bot only ever makes legal moves, using the same engine rules as a human player.
-- **R-BOT-2:** Goal: avoid taking points. **OPEN:** Claude drafts the exact strategy (contract choice, card play, ray declaration, trix) during M3, and Seif approves it before it's built. Until then, the bot plays the lowest legal card as a placeholder.
+- **R-BOT-2:** It is a placeholder, not a strategy. It picks the first allowed contract in the order `dineri, damet, pli, farcha, ray, general, trix`, plays its lowest legal card (by R-DECK-2), and never declares K♥.
+
+## Changelog
+- 2026-09-23: Approved by Seif. On approval: leaving and being kicked generate a new invite link (R-TABLE-6), and the bot is a placeholder (R-BOT-2).
