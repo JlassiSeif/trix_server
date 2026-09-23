@@ -91,6 +91,20 @@ export function Table({ conn }: { conn: Connection }) {
     };
   }, [onEvents]);
 
+  // R-TABLE-12: tell everyone when ownership changes hands.
+  const prevOwner = useRef(room.owner);
+  useEffect(() => {
+    if (prevOwner.current === room.owner) return;
+    prevOwner.current = room.owner;
+    const text = room.owner === me ? "You are now the table owner" : `${name(room.owner)} is now the table owner`;
+    const id = ++counter.current;
+    setFeed((f) => [...f, { id, text: `${text}.` }].slice(-60));
+    setToast({ id, text });
+    const t = setTimeout(() => setToast((cur) => (cur?.id === id ? null : cur)), 3000);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [room.owner]);
+
   const plays = new Set(game.legal.flatMap((a) => (a.type === "play" ? [a.card] : [])));
   const canDeclare = game.legal.some((a) => a.type === "declareKing");
   const canPeek = game.legal.some((a) => a.type === "peekLastTrick");
@@ -579,6 +593,7 @@ function Scoreboard({ conn }: { conn: Connection }) {
             moved={change?.moved[s] ?? 0}
             delta={change?.delta[s] ?? 0}
             showKick={isOwner && s !== room.you && room.seats[s]!.kind !== "empty"}
+            showMakeOwner={isOwner && s !== room.you && room.seats[s]!.kind === "human" && room.seats[s]!.connected}
           />
         ))}
       </div>
@@ -597,6 +612,7 @@ function LeaderRow(props: {
   moved: number;
   delta: number;
   showKick: boolean;
+  showMakeOwner: boolean;
 }) {
   const { seat: s, conn } = props;
   const room = conn.room!;
@@ -617,6 +633,11 @@ function LeaderRow(props: {
       <div className="lb-main">
         <div className="lb-top">
           <span className="lb-name">
+            {s === room.owner && (
+              <span className="owner-crown" title="Table owner">
+                ♛{" "}
+              </span>
+            )}
             {info.name ?? "Empty"}
             {s === room.you && <span className="muted small"> (you)</span>}
           </span>
@@ -647,11 +668,18 @@ function LeaderRow(props: {
           ))}
         </div>
       </div>
-      {props.showKick && (
-        <button className="icon lb-kick" title={`Remove ${info.name}`} onClick={() => conn.send({ type: "kick", seat: s })}>
-          ×
-        </button>
-      )}
+      <div className="lb-actions">
+        {props.showMakeOwner && (
+          <button className="icon" title={`Make ${info.name} the table owner`} onClick={() => conn.send({ type: "makeOwner", seat: s })}>
+            ♛
+          </button>
+        )}
+        {props.showKick && (
+          <button className="icon" title={`Remove ${info.name}`} onClick={() => conn.send({ type: "kick", seat: s })}>
+            ×
+          </button>
+        )}
+      </div>
     </div>
   );
 }

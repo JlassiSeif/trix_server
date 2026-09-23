@@ -359,6 +359,46 @@ await runCase("C8", "Leaving needs a confirmation", "Clicking 'Leave the table' 
   return { pass: asked && stillSeated === 1, got: `asked first: ${asked}; still seated after cancelling: ${stillSeated === 1}` };
 });
 
+await runCase("C11", "The owner hands ownership to a friend", "The owner clicks the crown next to a connected friend; the friend is told they are now the owner and gets the owner's controls (invite link, remove, crown).", async () => {
+  const owner = await newPlayer("owner");
+  const friend = await newPlayer("friend");
+  const link = await createTable(owner, "Seif");
+  await joinByLink(friend, link, "Ali");
+  await waitText(owner, "Ali");
+  await addBots(owner, 2);
+  await friend.waitForSelector(".table-screen");
+  await owner.click('.lb-row:has-text("Ali") button[title^="Make Ali"]');
+  await waitText(friend, "You are now the table owner", 5000);
+  await shot(friend, "C11-friend-now-owner");
+  const friendHasControls = (await friend.locator('button[title^="Remove"]').count()) > 0;
+  const ownerLostControls = (await owner.locator('button[title^="Remove"]').count()) === 0;
+  await owner.context().close();
+  await friend.context().close();
+  return { pass: friendHasControls && ownerLostControls, got: `friend told and has the owner's controls: ${friendHasControls}; old owner's controls gone: ${ownerLostControls}` };
+});
+
+await runCase("C12", "The owner disappears", "The owner closes their tab. The table pauses; after the hand-over time (30 s, 3 s at test speed) the friend becomes owner, gets 'Play on with a bot', and the game goes on.", async () => {
+  const owner = await newPlayer("owner");
+  const friend = await newPlayer("friend");
+  const link = await createTable(owner, "Seif");
+  await joinByLink(friend, link, "Ali");
+  await waitText(owner, "Ali");
+  await addBots(owner, 2);
+  await friend.waitForSelector(".table-screen");
+  await owner.context().close();
+  await friend.waitForSelector(".paused", { timeout: 10_000 });
+  const before = (await friend.locator('.paused button:has-text("Play on with a bot")').count()) > 0;
+  await waitText(friend, "You are now the table owner", 10_000);
+  await friend.waitForSelector('.paused button:has-text("Play on with a bot")', { timeout: 5000 });
+  await shot(friend, "C12-friend-took-over");
+  await friend.click('.paused button:has-text("Play on with a bot")');
+  await friend.waitForSelector(".paused", { state: "detached", timeout: 5000 });
+  await autoplay(friend, 3000);
+  const playing = (await friend.locator(".paused").count()) === 0;
+  await friend.context().close();
+  return { pass: !before && playing, got: `controls before hand-over: ${before}; friend became owner and resumed with a bot: ${playing}` };
+});
+
 await runCase("C9", "Server restarts in the middle of a game", "After a restart (every deploy is one) the players' pages reconnect by themselves, and the game carries on where it was: same contract, same cards.", async () => {
   const owner = await newPlayer("owner");
   const friend = await newPlayer("friend");

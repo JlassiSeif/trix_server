@@ -302,3 +302,91 @@ describe("found by the testing station (2026-09-23)", () => {
     expect(owner.last("update").room.seats[1]).toMatchObject({ name: "Ali", connected: false });
   });
 });
+
+describe("R-TABLE-12: room ownership passes on", () => {
+  /** Owner (seat 0) + two guests (seats 1, 2) + a bot, game running. */
+  function table() {
+    const r = createRoom();
+    const g1 = new FakeConn();
+    const g2 = new FakeConn();
+    send(g1, { type: "joinRoom", roomId: r.room.id, invite: invite(r.owner), name: "Ali" });
+    send(g2, { type: "joinRoom", roomId: r.room.id, invite: invite(r.owner), name: "Sami" });
+    send(r.owner, { type: "addBot", seat: 3 });
+    return { ...r, g1, g2 };
+  }
+
+  it("an owner away for 30 s hands over to the next connected player", () => {
+    const { room, owner, g1 } = table();
+    hub.disconnected(owner);
+    vi.advanceTimersByTime(29_000);
+    expect(room.owner).toBe(0);
+    vi.advanceTimersByTime(1_500);
+    expect(room.owner).toBe(1);
+    expect(g1.last("update").room.owner).toBe(1);
+    expect(g1.last("update").room.invitePath).not.toBeNull(); // the new owner gets the invite link
+  });
+
+  it("skips players who are away, and never picks a bot", () => {
+    const { room, owner, g1, g2 } = table();
+    hub.disconnected(g1);
+    hub.disconnected(owner);
+    vi.advanceTimersByTime(31_000);
+    expect(room.owner).toBe(2);
+    expect(g2.last("update").room.owner).toBe(2);
+  });
+
+  it("with nobody connected, waits, then hands over as soon as someone comes back", () => {
+    const { room, owner, g1, g2 } = table();
+    const g1Token = g1.last("joined").token;
+    hub.disconnected(g1);
+    hub.disconnected(g2);
+    hub.disconnected(owner);
+    vi.advanceTimersByTime(60_000);
+    expect(room.owner).toBe(0);
+    const back = new FakeConn();
+    send(back, { type: "joinRoom", roomId: room.id, token: g1Token });
+    expect(room.owner).toBe(1);
+  });
+
+  it("a returning previous owner does not get it back automatically", () => {
+    const { room, owner, token } = table();
+    hub.disconnected(owner);
+    vi.advanceTimersByTime(31_000);
+    expect(room.owner).toBe(1);
+    const back = new FakeConn();
+    send(back, { type: "joinRoom", roomId: room.id, token });
+    expect(room.owner).toBe(1);
+  });
+
+  it("a short blip (refresh) does not cost the owner ownership", () => {
+    const { room, owner, token } = table();
+    hub.disconnected(owner);
+    vi.advanceTimersByTime(5_000);
+    const back = new FakeConn();
+    send(back, { type: "joinRoom", roomId: room.id, token });
+    vi.advanceTimersByTime(60_000);
+    expect(room.owner).toBe(0);
+  });
+
+  it("the owner can hand ownership to a connected player, and only to one", () => {
+    const { room, owner, g1, g2 } = table();
+    send(g1, { type: "makeOwner", seat: 2 });
+    expect(g1.errors()).toContain("NOT_OWNER");
+    send(owner, { type: "makeOwner", seat: 3 }); // the bot
+    send(owner, { type: "makeOwner", seat: 0 }); // themself
+    hub.disconnected(g2);
+    send(owner, { type: "makeOwner", seat: 2 }); // away
+    expect(owner.errors()).toEqual(["NOT_ELIGIBLE", "NOT_ELIGIBLE", "NOT_ELIGIBLE"]);
+    send(owner, { type: "makeOwner", seat: 1 });
+    expect(room.owner).toBe(1);
+    expect(owner.last("update").room.invitePath).toBeNull();
+    expect(g1.last("update").room.invitePath).not.toBeNull();
+  });
+
+  it("an owner who leaves hands over to a connected player before an away one", () => {
+    const { room, owner, g1 } = table();
+    hub.disconnected(g1);
+    send(owner, { type: "leave" });
+    expect(room.owner).toBe(2);
+  });
+});

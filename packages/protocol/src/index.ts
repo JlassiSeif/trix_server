@@ -22,6 +22,8 @@ export type ClientRequest =
   // Room owner only
   | { type: "addBot"; seat: Seat }
   | { type: "kick"; seat: Seat }
+  /** Hand ownership to another connected player (R-TABLE-12). */
+  | { type: "makeOwner"; seat: Seat }
   | { type: "resumeWithBots" }
   | { type: "endGame" }
   /** In the lobby with 4 seats filled (e.g. after the owner ended a game). */

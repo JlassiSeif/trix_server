@@ -49,6 +49,8 @@ export const TIMING = {
   /** After a trick is taken, so everyone sees what came out before the next lead. */
   afterTrickMs: 1800,
   continueMs: CONTINUE_SECONDS * 1000,
+  /** R-TABLE-12: an owner away this long hands ownership to a connected player. */
+  ownerHandoverMs: 30_000,
 };
 
 const ALPHABET = "abcdefghjkmnpqrstuvwxyz23456789";
@@ -81,6 +83,9 @@ export class Room {
   ready = new Set<Seat>();
   lastActive = Date.now();
   private botTimer: ReturnType<typeof setTimeout> | null = null;
+  private ownerTimer: ReturnType<typeof setTimeout> | null = null;
+  /** When each human seat lost its connection (not saved: after a restart everyone counts from then). */
+  private awaySince = new Map<Seat, number>();
   private continueTimer: ReturnType<typeof setTimeout> | null = null;
   private closed = false;
   private frozen = false;
@@ -119,6 +124,8 @@ export class Room {
     room.game = snap.game;
     room.lastActive = snap.lastActive;
     room.lastStatus = room.status;
+    const now = Date.now();
+    for (const s of SEATS) if (room.seats[s]?.kind === "human") room.awaySince.set(s, now);
     return room;
   }
 
@@ -131,6 +138,7 @@ export class Room {
   freeze(): void {
     this.frozen = true;
     this.clearTimers();
+    if (this.ownerTimer) clearTimeout(this.ownerTimer);
   }
 
   // -------------------------------------------------------------------------
@@ -181,6 +189,7 @@ export class Room {
     const token = newToken();
     const replacing = this.seats[seat]?.kind === "bot";
     this.seats[seat] = { kind: "human", name, token, conn, botPlaying: false, vacant: false };
+    this.awaySince.delete(seat);
     if (creating) this.owner = seat;
     log("info", "seat.joined", { room: this.id, seat, name, owner: creating, replacingBot: replacing, inGame: !!this.game });
     conn.send({ type: "joined", roomId: this.id, seat, token });
@@ -202,6 +211,7 @@ export class Room {
     }
     st.conn = conn;
     st.botPlaying = false;
+    this.awaySince.delete(seat);
     conn.send({ type: "joined", roomId: this.id, seat, token: st.token! });
     this.changed([]);
     return seat;
@@ -211,7 +221,8 @@ export class Room {
     const seat = this.seatOf(conn);
     if (seat === null) return;
     this.seats[seat]!.conn = null;
-    log("info", "seat.disconnected", { room: this.id, seat, phase: this.game?.phase ?? "lobby" });
+    this.awaySince.set(seat, Date.now());
+    log("info", "seat.disconnected", { room: this.id, seat, phase: this.game?.phase ?? "lobby", owner: seat === this.owner });
     this.changed([]); // pauses the game if it needs this player (R-TABLE-4)
     if (this.humans().every((s) => !this.seats[s]!.conn)) this.lastActive = Date.now();
   }
@@ -229,18 +240,55 @@ export class Room {
       st.conn.close();
     }
     if (st.kind === "human") this.invite = randomId(8);
+    this.awaySince.delete(seat);
     if (seat === this.owner) {
-      const next = this.humans()[0];
+      // R-TABLE-12: a connected player first; if nobody is connected, any remaining player.
+      const next = this.nextOwner() ?? this.humans()[0];
       if (next === undefined) return this.close();
-      this.owner = next;
+      this.setOwner(next, "left");
     }
     this.changed([]);
+  }
+
+  // -------------------------------------------------------------------------
+  // Ownership (R-TABLE-12)
+
+  /** The next connected player counter-clockwise from the owner, if any. */
+  private nextOwner(): Seat | undefined {
+    for (let i = 1; i <= 3; i++) {
+      const s = ((this.owner + i) % 4) as Seat;
+      const st = this.seats[s];
+      if (st?.kind === "human" && st.conn) return s;
+    }
+    return undefined;
+  }
+
+  private setOwner(seat: Seat, reason: "left" | "away" | "handedOver"): void {
+    log("info", "room.ownerChanged", { room: this.id, from: this.owner, to: seat, reason });
+    this.owner = seat;
+  }
+
+  /** An owner away for too long hands over to a connected player; checked on every change. */
+  private checkOwner(): void {
+    if (this.ownerTimer) clearTimeout(this.ownerTimer);
+    this.ownerTimer = null;
+    const st = this.seats[this.owner];
+    if (!st || st.kind !== "human" || st.conn) return;
+    const next = this.nextOwner();
+    if (next === undefined) return; // nobody to hand over to: check again when someone connects
+    const away = Date.now() - (this.awaySince.get(this.owner) ?? Date.now());
+    if (away >= TIMING.ownerHandoverMs) {
+      this.setOwner(next, "away");
+      return;
+    }
+    if (!this.frozen && !this.closed) this.ownerTimer = setTimeout(() => this.changed([]), TIMING.ownerHandoverMs - away);
   }
 
   close(): void {
     if (this.closed) return;
     this.closed = true;
     this.clearTimers();
+    if (this.ownerTimer) clearTimeout(this.ownerTimer);
     log("info", "room.closed", { room: this.id });
     this.hooks.onChange?.();
     for (const s of SEATS) {
@@ -306,6 +354,15 @@ export class Room {
         log("info", "seat.botAdded", { room: this.id, seat: s });
         this.changed([]);
         this.startIfFull();
+        return;
+      }
+      case "makeOwner": {
+        ownerOnly();
+        const s = targetSeat();
+        const st = this.seats[s];
+        if (s === seat || st?.kind !== "human" || !st.conn) throw new RoomError("NOT_ELIGIBLE", "Ownership can only go to another player who is at the table right now");
+        this.setOwner(s, "handedOver");
+        this.changed([]);
         return;
       }
       case "kick": {
@@ -388,6 +445,7 @@ export class Room {
     if (this.closed) return;
     // Start the between-contracts countdown before telling anyone, so they all see it.
     if (this.game?.phase === "contractEnd" && this.continueAt === null) this.continueAt = Date.now() + TIMING.continueMs;
+    this.checkOwner(); // before telling anyone, so everyone sees the current owner
     for (const e of events) {
       if (e.type === "contractScored") {
         const r = e.result;

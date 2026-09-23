@@ -32,6 +32,11 @@ export function Lobby({ conn }: { conn: Connection }) {
                 {seat.kind === "human" && !seat.connected ? " · away" : ""}
               </span>
               {isOwner && seat.kind === "empty" && <button onClick={() => conn.send({ type: "addBot", seat: s })}>Add a bot</button>}
+              {isOwner && seat.kind === "human" && seat.connected && s !== room.you && (
+                <button className="secondary" onClick={() => conn.send({ type: "makeOwner", seat: s })}>
+                  Make owner
+                </button>
+              )}
               {isOwner && seat.kind !== "empty" && s !== room.you && (
                 <button className="secondary" onClick={() => conn.send({ type: "kick", seat: s })}>
                   Remove
