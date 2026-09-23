@@ -41,6 +41,7 @@ The engine implements only what's written here. Every rule has an ID that the te
 - **R-TRICK-3:** The highest card of the led suit wins the trick. There are no trumps, and a card of another suit never wins.
 - **R-TRICK-4:** The winner of a trick leads the next one.
 - **R-TRICK-5:** A won trick goes to the winner's won pile, and contracts are scored from the won piles.
+- **R-TRICK-6:** Completed tricks are face down: players see only how many tricks each player has won. Each player may look at the **last completed trick** up to **2 times per contract**. Assumed until Seif says otherwise: a player can look at any moment during a trick contract (not only on their turn), and the look shows the 4 cards and who played each.
 
 ## 5. Multipliers
 - **R-MULT-1:** The **picker's** score for their contract is **×2**, including bonuses. Other players' scores are not multiplied.
@@ -113,3 +114,4 @@ The engine implements only what's written here. Every rule has an ID that the te
 
 ## Changelog
 - 2026-09-23: Approved by Seif. On approval: leaving and being kicked generate a new invite link (R-TABLE-6), and the bot is a placeholder (R-BOT-2).
+- 2026-09-23: Seif added R-TRICK-6 (look at the last trick twice per contract). The exact moments when a look is allowed are assumed and marked as such.

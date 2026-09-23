@@ -12,6 +12,7 @@ describe("Trix", () => {
     let s = startContract("trix", SUIT_PER_SEAT).state;
     expect(legalCards(s, 0)).toEqual(["j_h"]);
     s = playCards(s, "j_h;j_c;j_d;j_s").state;
+    reject(s, 1, { type: "peekLastTrick" }, "CANNOT_PEEK"); // R-TRICK-6: no tricks in trix
     expect(legalCards(s, 0).sort()).toEqual(["9_h", "q_h"]);
     s = playCards(s, "q_h;q_c;q_d;q_s;k_h;k_c;k_d;k_s").state;
     expect(legalCards(s, 0).sort()).toEqual(["10_h", "9_h"]); // the 10 comes after the king, not the ace

@@ -38,8 +38,10 @@ function randomGame(seed: number): { state: GameState; steps: number } {
     const who = actor(s);
     if (who === null) return { state: s, steps };
 
-    // Everyone else has nothing to do.
-    for (const other of SEATS) if (other !== who) expect(legalActions(s, other)).toEqual([]);
+    // Everyone else can at most look at the last trick (R-TRICK-6).
+    for (const other of SEATS) {
+      if (other !== who) expect(legalActions(s, other).every((a) => a.type === "peekLastTrick")).toBe(true);
+    }
 
     const legal = legalActions(s, who);
     expect(legal.length).toBeGreaterThan(0);

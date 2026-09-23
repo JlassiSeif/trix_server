@@ -29,6 +29,7 @@ import {
 
 export const MAX_CONTRACTS = 28; // R-GAME-2: 4 players × 7 contracts
 export const SCORE_LIMIT = 1000; // R-GAME-6
+export const PEEKS_PER_CONTRACT = 2; // R-TRICK-6
 
 export type Phase = "picking" | "tricks" | "trix" | "contractEnd" | "gameOver";
 
@@ -102,6 +103,8 @@ export interface GameState {
   /** Whether each seat has played a card this contract (closes the K♥ declaration, R-RAY-3). */
   hasPlayed: boolean[];
   kingDeclaredBy: Seat | null;
+  /** Looks at the last trick used by each seat this contract (R-TRICK-6). */
+  peeksUsed: number[];
   // Trix
   stacks: Record<Suit, TrixStack | null>;
   finishers: Seat[];
@@ -113,6 +116,7 @@ export interface GameState {
 export type Action =
   | { type: "pick"; contract: Contract }
   | { type: "declareKing" }
+  | { type: "peekLastTrick" }
   | { type: "play"; card: CardId }
   /** Deal the next contract after a contract ends. Sent by the server, not by a player. */
   | { type: "nextContract" };
@@ -123,6 +127,8 @@ export type GameEvent =
   | { type: "dealt"; contractNo: number; picker: Seat }
   | { type: "picked"; seat: Seat; contract: Contract; multiplier: number; forced: boolean }
   | { type: "kingDeclared"; seat: Seat }
+  /** Private: only `seat` may see this (R-TRICK-6). */
+  | { type: "lastTrickShown"; seat: Seat; cards: PlayedCard[]; winner: Seat }
   | { type: "cardPlayed"; seat: Seat; card: CardId }
   | { type: "trickWon"; seat: Seat; cards: PlayedCard[] }
   | { type: "passed"; seat: Seat }
@@ -140,7 +146,8 @@ export type ErrorCode =
   | "CARD_NOT_IN_HAND"
   | "MUST_FOLLOW_SUIT"
   | "ILLEGAL_TRIX_PLAY"
-  | "CANNOT_DECLARE";
+  | "CANNOT_DECLARE"
+  | "CANNOT_PEEK";
 
 export interface EngineError {
   code: ErrorCode;
@@ -194,6 +201,7 @@ export function createGame(options: GameOptions): GameState {
     tricksWon: [0, 0, 0, 0],
     hasPlayed: [false, false, false, false],
     kingDeclaredBy: null,
+    peeksUsed: [0, 0, 0, 0],
     stacks: { h: null, c: null, d: null, s: null },
     finishers: [],
     history: [],
@@ -231,6 +239,7 @@ function deal(state: GameState): void {
   state.tricksWon = [0, 0, 0, 0];
   state.hasPlayed = [false, false, false, false];
   state.kingDeclaredBy = null;
+  state.peeksUsed = [0, 0, 0, 0];
   state.stacks = { h: null, c: null, d: null, s: null };
   state.finishers = [];
 }
@@ -282,11 +291,22 @@ export function canDeclareKing(state: GameState, seat: Seat): boolean {
   );
 }
 
-/** Every action the actor may take right now. */
+/** R-TRICK-6: during a trick contract, once a trick is complete, at most twice per contract, at any moment. */
+export function canPeekLastTrick(state: GameState, seat: Seat): boolean {
+  return state.phase === "tricks" && state.lastTrick !== null && state.peeksUsed[seat]! < PEEKS_PER_CONTRACT;
+}
+
+/** Events only one seat may receive. Everything else is public. */
+export function privateTo(event: GameEvent): Seat | null {
+  return event.type === "lastTrickShown" ? event.seat : null;
+}
+
+/** Every action the actor may take right now. Looking at the last trick is the only one allowed off-turn. */
 export function legalActions(state: GameState, actor: Actor): Action[] {
   if (actor === "system") return state.phase === "contractEnd" ? [{ type: "nextContract" }] : [];
   if (state.phase === "picking") return legalContracts(state, actor).map((contract) => ({ type: "pick", contract }));
   const actions: Action[] = [];
+  if (canPeekLastTrick(state, actor)) actions.push({ type: "peekLastTrick" });
   if (canDeclareKing(state, actor)) actions.push({ type: "declareKing" });
   for (const card of legalCards(state, actor)) actions.push({ type: "play", card });
   return actions;
@@ -320,6 +340,8 @@ export function applyAction(state: GameState, actor: Actor, action: unknown): Ap
       return pick(state, actor, a.contract);
     case "declareKing":
       return declareKing(state, actor);
+    case "peekLastTrick":
+      return peekLastTrick(state, actor);
     case "play":
       if (!isCardId(a.card)) return fail("BAD_ACTION", "Unknown card");
       if (state.phase === "tricks") return playTrickCard(state, actor, a.card);
@@ -358,6 +380,14 @@ function declareKing(state: GameState, seat: Seat): ApplyResult {
   const next = structuredClone(state);
   next.kingDeclaredBy = seat;
   return { ok: true, state: next, events: [{ type: "kingDeclared", seat }] };
+}
+
+function peekLastTrick(state: GameState, seat: Seat): ApplyResult {
+  if (!canPeekLastTrick(state, seat)) return fail("CANNOT_PEEK", "You cannot look at the last trick now");
+  const next = structuredClone(state);
+  next.peeksUsed[seat]! += 1;
+  const { cards, winner } = next.lastTrick!;
+  return { ok: true, state: next, events: [{ type: "lastTrickShown", seat, cards, winner }] };
 }
 
 function checkTurn(state: GameState, seat: Seat, card: CardId): ApplyResult | null {

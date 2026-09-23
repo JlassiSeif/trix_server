@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { legalCards } from "../src/index";
+import { legalActions, legalCards, viewFor } from "../src/index";
 import { act, deal, playCards, reject, startContract } from "./helpers";
 
 /**
@@ -81,5 +81,33 @@ describe("Golden: smoke-test dineri round (0 / 20 / 50 / 10)", () => {
     expect(state.phase).toBe("contractEnd");
     expect(state.history[0]!.scores).toEqual([0, 20, 50, 10]); // lam3i picked: 0 × 2 = 0
     expect(state.totals).toEqual([0, 20, 50, 10]);
+  });
+});
+
+describe("R-TRICK-6: completed tricks are face down; the last one can be looked at twice", () => {
+  it("allows two looks per contract, to anyone at any moment, privately", () => {
+    let s = startContract("dineri", SMOKE_DEAL, 0).state;
+    reject(s, 1, { type: "peekLastTrick" }, "CANNOT_PEEK"); // no completed trick yet
+    s = playCards(s, SMOKE_TRICKS[0]!).state;
+    expect(viewFor(s, 3)).toMatchObject({ lastTrickExists: true, peeksLeft: 2 });
+    expect(viewFor(s, 3)).not.toHaveProperty("lastTrick");
+
+    const first = act(s, 3, { type: "peekLastTrick" }); // not seat 3's turn: still allowed
+    expect(first.events).toEqual([
+      { type: "lastTrickShown", seat: 3, winner: 2, cards: s.lastTrick!.cards },
+    ]);
+    s = act(first.state, 3, { type: "peekLastTrick" }).state;
+    expect(viewFor(s, 3).peeksLeft).toBe(0);
+    expect(legalActions(s, 3)).toEqual([]);
+    reject(s, 3, { type: "peekLastTrick" }, "CANNOT_PEEK");
+    expect(viewFor(s, 1).peeksLeft).toBe(2); // other seats keep theirs
+  });
+
+  it("resets the looks with every new contract", () => {
+    let s = playCards(startContract("dineri", SMOKE_DEAL, 0).state, SMOKE_TRICKS.join(";")).state;
+    reject(s, 0, { type: "peekLastTrick" }, "CANNOT_PEEK"); // contract over
+    s = act(s, "system", { type: "nextContract" }).state;
+    expect(viewFor(s, 0).peeksLeft).toBe(2);
+    expect(viewFor(s, 0).lastTrickExists).toBe(false);
   });
 });
