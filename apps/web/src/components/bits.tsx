@@ -53,3 +53,28 @@ export function InviteLink({ path }: { path: string }) {
     </div>
   );
 }
+
+/** Leaving gives the seat away for good (R-TABLE-6), so it asks first. */
+export function LeaveButton({ onLeave }: { onLeave: () => void }) {
+  const [asking, setAsking] = useState(false);
+  if (!asking) {
+    return (
+      <button className="link" onClick={() => setAsking(true)}>
+        Leave the table
+      </button>
+    );
+  }
+  return (
+    <div className="leave-confirm">
+      <p>Leave for good? Your seat goes to whoever the owner invites next.</p>
+      <div className="row">
+        <button className="danger" onClick={onLeave}>
+          Leave
+        </button>
+        <button className="secondary" onClick={() => setAsking(false)}>
+          Stay
+        </button>
+      </div>
+    </div>
+  );
+}

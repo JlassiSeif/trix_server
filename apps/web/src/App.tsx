@@ -17,6 +17,11 @@ export function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // The table is gone: back to the home address.
+  useEffect(() => {
+    if (conn.lost && location.pathname !== "/") history.replaceState(null, "", "/");
+  }, [conn.lost]);
+
   // Once seated, the address is just the room: the seat token does the rest.
   useEffect(() => {
     if (conn.roomId && location.pathname + location.search !== `/r/${conn.roomId}`) {
@@ -24,6 +29,15 @@ export function App() {
     }
   }, [conn.roomId]);
 
+  if (conn.replaced) {
+    return (
+      <main className="entry">
+        <h1>Trix</h1>
+        <p className="notice">Your seat is open in another tab or window, so this one has stepped back.</p>
+        <button onClick={conn.takeOver}>Play here instead</button>
+      </main>
+    );
+  }
   if (conn.room && conn.roomId && !conn.removed) {
     if (conn.room.status === "lobby" || !conn.game) return <Lobby conn={conn} />;
     return <Table conn={conn} />;
@@ -36,5 +50,5 @@ export function App() {
       </main>
     );
   }
-  return <Entry conn={conn} roomId={conn.removed ? null : urlRoom} invite={invite} />;
+  return <Entry conn={conn} roomId={conn.removed || conn.lost ? null : urlRoom} invite={invite} />;
 }

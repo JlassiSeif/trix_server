@@ -1,0 +1,6 @@
+# DRAFT Caddy config. Replace trix.example.com with the real domain.
+# Caddy gets and renews the HTTPS certificate on its own, and passes WebSockets through.
+trix.example.com {
+	encode zstd gzip
+	reverse_proxy 127.0.0.1:8080
+}

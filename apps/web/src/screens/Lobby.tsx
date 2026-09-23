@@ -1,6 +1,6 @@
 import { SEATS, type Seat } from "@trix/engine";
 import type { Connection } from "../net";
-import { InviteLink } from "../components/bits";
+import { InviteLink, LeaveButton } from "../components/bits";
 
 /** Before the game: seats fill up; the game starts on its own with the 4th (R-TABLE-3). */
 export function Lobby({ conn }: { conn: Connection }) {
@@ -43,9 +43,7 @@ export function Lobby({ conn }: { conn: Connection }) {
       </section>
       {isOwner && full && <button onClick={() => conn.send({ type: "startGame" })}>Start the game</button>}
       {!isOwner && <p className="muted">Waiting for the table owner to fill the seats.</p>}
-      <button className="link" onClick={() => conn.send({ type: "leave" })}>
-        Leave the table
-      </button>
+      <LeaveButton onLeave={() => conn.send({ type: "leave" })} />
       {conn.error && <p className="error">{conn.error.message}</p>}
     </main>
   );

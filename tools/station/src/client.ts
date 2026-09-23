@@ -67,6 +67,9 @@ export class StationClient {
   /** When each event arrived, for timing checks. */
   timeline: { t: number; type: string }[] = [];
   doublesSent = 0;
+  /** The first view received after the latest join: what the server restored, before any new move. */
+  firstViewAfterJoin: PlayerView | null = null;
+  private awaitingFirstView = false;
   onClose: ((code: number) => void) | null = null;
 
   constructor(
@@ -153,12 +156,18 @@ export class StationClient {
         this.token = msg.token;
         this.seat = msg.seat;
         this.acted.clear(); // back at the table: look at the state afresh, like a person would
+        this.firstViewAfterJoin = null;
+        this.awaitingFirstView = true;
         break;
       case "update": {
         const prev = this.game;
         this.updates++;
         this.room = msg.room;
         this.game = msg.game;
+        if (this.awaitingFirstView && msg.game) {
+          this.firstViewAfterJoin = msg.game;
+          this.awaitingFirstView = false;
+        }
         this.events.push(...msg.events);
         if (msg.game) this.inbox.push({ index: ++this.gameUpdates, room: msg.room, game: msg.game, events: msg.events, raw });
         if (msg.game) {

@@ -34,6 +34,15 @@ interface SeatState {
   vacant: boolean;
 }
 
+export interface RoomSnapshot {
+  id: string;
+  invite: string;
+  owner: Seat;
+  seats: (Omit<SeatState, "conn"> | null)[];
+  game: GameState | null;
+  lastActive: number;
+}
+
 export const TIMING = {
   botMoveMs: 900,
   botPickMs: 1400,
@@ -74,14 +83,54 @@ export class Room {
   private botTimer: ReturnType<typeof setTimeout> | null = null;
   private continueTimer: ReturnType<typeof setTimeout> | null = null;
   private closed = false;
+  private frozen = false;
   private lastStatus: RoomStatus = "lobby";
 
   constructor(
     id: string,
-    private readonly hooks: { onClose?: (room: Room) => void; seed?: () => number } = {},
+    private readonly hooks: { onClose?: (room: Room) => void; onChange?: () => void; seed?: () => number } = {},
+    restored = false,
   ) {
     this.id = id;
-    log("info", "room.created", { room: id });
+    if (!restored) log("info", "room.created", { room: id });
+  }
+
+  // -------------------------------------------------------------------------
+  // Saving and restoring (so a server restart doesn't end the game)
+
+  /** Everything needed to bring the room back after a restart. Connections are not saved:
+   *  every player comes back through their seat token (R-TABLE-5). */
+  toJSON(): RoomSnapshot {
+    return {
+      id: this.id,
+      invite: this.invite,
+      owner: this.owner,
+      seats: this.seats.map((st) => st && { kind: st.kind, name: st.name, token: st.token, botPlaying: st.botPlaying, vacant: st.vacant }),
+      game: this.game,
+      lastActive: this.lastActive,
+    };
+  }
+
+  static fromJSON(snap: RoomSnapshot, hooks: ConstructorParameters<typeof Room>[1]): Room {
+    const room = new Room(snap.id, hooks, true);
+    room.invite = snap.invite;
+    room.owner = snap.owner;
+    room.seats = snap.seats.map((st) => st && { ...st, conn: null });
+    room.game = snap.game;
+    room.lastActive = snap.lastActive;
+    room.lastStatus = room.status;
+    return room;
+  }
+
+  /** After a restore: let bot-only work (a seat played by the bot) carry on. */
+  wake(): void {
+    this.changed([]);
+  }
+
+  /** Server shutting down: no more timers. */
+  freeze(): void {
+    this.frozen = true;
+    this.clearTimers();
   }
 
   // -------------------------------------------------------------------------
@@ -193,6 +242,7 @@ export class Room {
     this.closed = true;
     this.clearTimers();
     log("info", "room.closed", { room: this.id });
+    this.hooks.onChange?.();
     for (const s of SEATS) {
       const conn = this.seats[s]?.conn;
       if (conn) {
@@ -352,7 +402,8 @@ export class Room {
       this.lastStatus = status;
     }
     this.broadcast(events);
-    this.schedule(events);
+    this.hooks.onChange?.();
+    if (!this.frozen) this.schedule(events);
   }
 
   private schedule(events: GameEvent[]): void {

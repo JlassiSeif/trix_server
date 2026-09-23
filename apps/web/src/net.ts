@@ -39,6 +39,12 @@ export interface Connection {
   game: PlayerView | null;
   error: { code: string; message: string; at: number } | null;
   removed: "kicked" | "left" | "roomClosed" | null;
+  /** This seat was opened in another tab or window; this one has stopped. */
+  replaced: boolean;
+  /** Take the seat back into this tab. */
+  takeOver: () => void;
+  /** The table we were at no longer exists (closed, or the server lost it). */
+  lost: string | null;
   send: (msg: ClientMessage) => void;
   /** Start (or switch to) a room: remembered so reconnects rejoin it. */
   join: (msg: Extract<ClientMessage, { type: "createRoom" | "joinRoom" }>) => void;
@@ -53,6 +59,10 @@ export function useConnection(): Connection {
   const [game, setGame] = useState<PlayerView | null>(null);
   const [error, setError] = useState<Connection["error"]>(null);
   const [removed, setRemoved] = useState<Connection["removed"]>(null);
+  const [replaced, setReplaced] = useState(false);
+  const [lost, setLost] = useState<string | null>(null);
+  const replacedRef = useRef(false);
+  const reconnectNow = useRef<() => void>(() => undefined);
 
   const socket = useRef<WebSocket | null>(null);
   const pendingJoin = useRef<ClientMessage | null>(null);
@@ -97,6 +107,7 @@ export function useConnection(): Connection {
             setRoomId(msg.roomId);
             setRemoved(null);
             setError(null);
+            setLost(null);
             break;
           case "update":
             setRoom(msg.room);
@@ -104,9 +115,24 @@ export function useConnection(): Connection {
             if (msg.events.length) for (const fn of listeners.current) fn(msg.events, msg.room, msg.game);
             break;
           case "error":
-            if (msg.code === "BAD_TOKEN" && joinedRoom.current) {
-              seatToken.clear(joinedRoom.current);
+            if (msg.code === "REPLACED") {
+              // Another tab took this seat: stop here, or the two tabs take it from each other forever.
+              replacedRef.current = true;
+              setReplaced(true);
+              break;
+            }
+            // Rejoining (after a drop, or on opening the page with a saved seat) failed: the table,
+            // or our seat at it, is gone. Say so instead of showing a frozen table.
+            const pj = pendingJoin.current;
+            const rejoining = joinedRoom.current ?? (pj?.type === "joinRoom" && pj.token ? pj.roomId : null);
+            if ((msg.code === "BAD_TOKEN" || msg.code === "ROOM_NOT_FOUND") && rejoining) {
+              seatToken.clear(rejoining);
+              setLost(rejoining);
               joinedRoom.current = null;
+              pendingJoin.current = null;
+              setRoom(null);
+              setGame(null);
+              setRoomId(null);
             }
             setError({ code: msg.code, message: msg.message, at: Date.now() });
             break;
@@ -121,10 +147,15 @@ export function useConnection(): Connection {
       };
       ws.onclose = () => {
         setOnline(false);
-        if (stopped.current) return;
+        if (stopped.current || replacedRef.current) return;
         retry = Math.min(retry + 1, 5);
         timer = setTimeout(connect, [0, 500, 1000, 2000, 4000, 6000][retry]);
       };
+    };
+    reconnectNow.current = () => {
+      clearTimeout(timer);
+      retry = 0;
+      connect();
     };
     connect();
     return () => {
@@ -149,5 +180,11 @@ export function useConnection(): Connection {
     return () => listeners.current.delete(fn);
   }, []);
 
-  return { online, roomId, room, game, error, removed, send: rawSend, join, onEvents };
+  const takeOver = useCallback(() => {
+    replacedRef.current = false;
+    setReplaced(false);
+    reconnectNow.current();
+  }, []);
+
+  return { online, roomId, room, game, error, removed, replaced, takeOver, lost, send: rawSend, join, onEvents };
 }

@@ -10,3 +10,4 @@ dist/
 *.tsbuildinfo
 e2e-out/
 .station-runs/
+.data/

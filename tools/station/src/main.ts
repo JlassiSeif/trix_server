@@ -26,21 +26,27 @@ const dir = resolve(opt("out", join(root, ".station-runs", stamp)));
 mkdirSync(join(dir, "clients"), { recursive: true });
 process.env.STATION_SPEED = String(speed);
 
+const serverLog = createWriteStream(join(dir, "server.log"));
+let serverPort = 0;
 async function startServer(): Promise<{ proc: ChildProcess | null; http: string }> {
   if (base) return { proc: null, http: base };
-  const log = createWriteStream(join(dir, "server.log"));
+  const log = serverLog;
   const proc = spawn(process.execPath, [serverJs || join(root, "apps/server/dist/index.js")], {
-    env: { ...process.env, PORT: "0", TRIX_SPEED: String(speed), TRIX_LOG_LEVEL: "debug" },
+    // Rooms are saved to the run folder, so a restart (S24) brings them back, as in production.
+    env: { ...process.env, PORT: String(serverPort), TRIX_SPEED: String(speed), TRIX_LOG_LEVEL: "debug", TRIX_STATE_FILE: join(dir, "rooms.json") },
     stdio: ["ignore", "pipe", "pipe"],
   });
-  proc.stderr!.pipe(log);
+  proc.stderr!.on("data", (d: Buffer) => log.write(d));
   return new Promise((ok, fail) => {
     let buf = "";
     proc.stdout!.on("data", (d: Buffer) => {
       log.write(d);
       buf += d.toString();
       const m = buf.match(/"event":"server.listening".*?"port":(\d+)/);
-      if (m) ok({ proc, http: `http://127.0.0.1:${m[1]}` });
+      if (m) {
+        serverPort = Number(m[1]);
+        ok({ proc, http: `http://127.0.0.1:${m[1]}` });
+      }
     });
     proc.on("exit", (code) => fail(new Error(`server exited early with code ${code}`)));
     setTimeout(() => fail(new Error("server did not start")), 10_000);
@@ -163,8 +169,19 @@ function report(results: Result[], http: string, totalSecs: number): string {
 }
 
 const t0 = Date.now();
-const { proc, http } = await startServer();
+let { proc, http } = await startServer();
 const ctx: Ctx = { httpUrl: http, wsUrl: http.replace(/^http/, "ws") + "/ws", dir: join(dir, "clients"), seed, stallMs: 5000, registry: [] };
+if (proc) {
+  ctx.restartServer = async () => {
+    const old = proc!;
+    await new Promise((ok) => {
+      old.removeAllListeners("exit");
+      old.once("exit", ok);
+      old.kill("SIGTERM"); // what systemd sends on a restart
+    });
+    ({ proc, http } = await startServer());
+  };
+}
 console.log(`station: server ${http}, output ${dir}`);
 const results: Result[] = [];
 for (const s of SCENARIOS.filter((x) => !only.length || only.includes(x.id))) {

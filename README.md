@@ -9,6 +9,7 @@ Rules: [RULES.md](RULES.md). Plan and progress: [TODO.md](TODO.md).
 npm install
 npm run build
 npm start            # http://127.0.0.1:8080
+TRIX_STATE_FILE=.data/rooms.json npm start   # same, and games survive a restart
 ```
 
 Open the page, pick a name, and create a table. You can send the invite link to friends or fill the other seats with **Add a bot**. The game starts when all 4 seats are taken.
@@ -26,6 +27,10 @@ End-to-end: run a built server with fast bots (`TRIX_SPEED=10 PORT=8123 npm star
 Bug hunt: `npm run station` plays hundreds of games over the real protocol with simulated players (normal play, stress, disconnects, hostile input), checks every move with an independent referee, and writes a report to `.station-runs/`. See [docs/testing-station.md](docs/testing-station.md).
 
 Server logs are JSON lines (`TRIX_LOG_LEVEL=debug|info|warn|error`); `/api/stats` shows rooms, sockets and memory.
+
+Connection flows in real browsers (friends joining, network drops, closed tabs, full table, kicks, two tabs, server restarts): `npm run build && node apps/web/e2e/connections.mjs`.
+
+Deploying: [docs/deploy.md](docs/deploy.md) (draft) and [docs/predeploy-check.md](docs/predeploy-check.md).
 
 ## Layout
 

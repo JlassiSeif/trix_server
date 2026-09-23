@@ -25,6 +25,7 @@ export function Entry({ conn, roomId, invite }: { conn: Connection; roomId: stri
       <h1>Trix</h1>
       <p className="tagline">{joining ? "You've been invited to a table." : "Seven contracts, four players, and the lowest score wins."}</p>
       {conn.removed && <p className="notice">{removedText[conn.removed]}</p>}
+      {conn.lost && !conn.removed && <p className="notice">That table doesn't exist any more. Create a new one below, or ask for a new link.</p>}
       {joining && !invite && <p className="notice">This link has no invite code. Ask the table owner for the full link.</p>}
       <form onSubmit={submit}>
         <label htmlFor="name">Your name</label>
@@ -33,7 +34,7 @@ export function Entry({ conn, roomId, invite }: { conn: Connection; roomId: stri
           {joining ? "Take a seat" : "Create a table"}
         </button>
       </form>
-      {conn.error && <p className="error">{conn.error.message}</p>}
+      {conn.error && !(conn.lost && (conn.error.code === "ROOM_NOT_FOUND" || conn.error.code === "BAD_TOKEN")) && <p className="error">{conn.error.message}</p>}
       {!conn.online && <p className="muted">Connecting to the server…</p>}
       {joining && (
         <p className="muted">

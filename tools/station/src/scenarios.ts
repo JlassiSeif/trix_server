@@ -343,17 +343,20 @@ export const SCENARIOS: Scenario[] = [
     group: "connections",
     expected: "15 times: the drop pauses the table, the player comes back with their seat token to the same seat and the same hand, and the table resumes (R-TABLE-4, R-TABLE-5). The game finishes.",
     async run(ctx) {
-      const t = await Table.create(ctx, "S14");
+      // Play again automatically, so a short game doesn't cut the test short.
+      const t = await Table.create(ctx, "S14", { policy: { ...NORMAL, clickReady: true } });
       const x = t.clients[2]!;
       const other = t.clients[0]!;
       let pauses = 0;
       let resumes = 0;
+      let drops = 0;
       let sameHand = 0;
       const notes: string[] = [];
-      for (let i = 0; i < 15 && other.room?.status !== "finished"; i++) {
+      for (let i = 0; i < 15; i++) {
         await sleep(200 + Math.floor(x.random() * 600));
-        if (other.room?.status !== "playing") continue;
+        await other.waitFor(() => other.room?.status === "playing", 15_000, "table playing");
         const handBefore = x.game?.hand ?? [];
+        drops++;
         x.drop();
         let countWhilePaused = -1;
         try {
@@ -365,7 +368,8 @@ export const SCENARIOS: Scenario[] = [
         }
         await reconnect(x);
         // Same cards as when the table froze (a move already on its way when the drop happened may have landed).
-        const after = x.game?.hand ?? [];
+        // The view the server restored on return (the player may make a new move right after).
+        const after = x.firstViewAfterJoin?.hand ?? [];
         const ok = after.length === countWhilePaused && after.every((c) => handBefore.includes(c));
         if (ok) sameHand++;
         else notes.push(`drop ${i + 1}: hand on return ${JSON.stringify(after)} vs ${countWhilePaused} cards while paused, before drop ${JSON.stringify(handBefore)}`);
@@ -376,10 +380,12 @@ export const SCENARIOS: Scenario[] = [
           notes.push(`drop ${i + 1}: ${(e as Error).message}`);
         }
       }
+      for (const c of t.clients) c.policy = { ...NORMAL };
+      await other.waitFor(() => other.room?.status === "playing", 15_000, "table playing");
       await t.untilFinished(GAME_MS);
       return {
-        got: `pauses ${pauses}, resumes ${resumes}, same hand ${sameHand}; ${summary(t)}`,
-        checks: [check(pauses === resumes && pauses >= 10, `every drop paused and every return resumed (${pauses}/${resumes})`), check(sameHand === pauses, "hand unchanged while away")],
+        got: `${drops} drops: pauses ${pauses}, resumes ${resumes}, same hand ${sameHand}; ${summary(t)}`,
+        checks: [check(drops >= 5 && pauses === drops && resumes === drops, `every drop paused and every return resumed (${pauses}/${resumes} of ${drops})`), check(sameHand === drops, "hand unchanged while away")],
         tables: [t],
         extra: notes,
       };
@@ -531,6 +537,41 @@ export const SCENARIOS: Scenario[] = [
         got: `rooms ${rooms} → ${roomsWhileAway} while away; game unchanged on return: ${same}; ${summary(t)}`,
         checks: [check(roomsWhileAway === rooms, "room kept while nobody is connected"), check(same, "game picks up exactly where it was")],
         tables: [t],
+      };
+    },
+  },
+
+  {
+    id: "S24",
+    title: "The server restarts during three games",
+    group: "connections",
+    expected: "Three tables are mid-game when the server restarts, as on every deploy. Every player comes back with their seat token to the same contract and the same cards, the referee stays clean across the restart, and all three games finish.",
+    async run(ctx) {
+      if (!ctx.restartServer) return { got: "skipped: needs the station's own server", checks: [check(false, "restart possible")], tables: [] };
+      const tables = await Promise.all([0, 1, 2].map((i) => Table.create(ctx, `S24-t${i}`)));
+      const everyone = tables.flatMap((t) => t.clients);
+      await Promise.all(tables.map((t) => midContract(t, t.clients[0]!)));
+      // Players sit still through the restart, so "before" and "after" can be compared fairly
+      // (otherwise the first tables back play on while the others are still reconnecting).
+      const policies = everyone.map((c) => c.policy);
+      for (const c of everyone) c.policy = null;
+      await ctx.restartServer();
+      await Promise.all(everyone.map((c) => c.waitFor(() => !c.ws, 5000, "disconnected by the restart")));
+      // The last thing each player saw before the restart is what the server saved.
+      const before = everyone.map((c) => JSON.stringify({ n: c.game!.contractNo, p: c.game!.phase, h: c.game!.hand, t: c.game!.totals }));
+      for (const c of everyone) await reconnect(c);
+      const after = everyone.map((c) => {
+        const g = c.firstViewAfterJoin!;
+        return JSON.stringify({ n: g.contractNo, p: g.phase, h: g.hand, t: g.totals });
+      });
+      const same = before.filter((b, i) => b === after[i]).length;
+      everyone.forEach((c, i) => (c.policy = policies[i]!));
+      for (const c of everyone) c.maybeAct();
+      await Promise.all(tables.map((t) => t.untilFinished(GAME_MS)));
+      return {
+        got: `${same}/${everyone.length} players back to exactly the same game; ${tables.map(summary).join(" · ")}`,
+        checks: [check(same === everyone.length, "everyone back to the same contract, cards and totals"), ...tables.map(agree)],
+        tables,
       };
     },
   },

@@ -13,7 +13,7 @@ import {
 } from "@trix/engine";
 import type { RoomView } from "@trix/protocol";
 import type { Connection } from "../net";
-import { Card, ContractIcon, InviteLink, useTick } from "../components/bits";
+import { Card, ContractIcon, InviteLink, LeaveButton, useTick } from "../components/bits";
 import { CONTRACT_ORDER, CONTRACT_RULE, cardLabel, describe, multiplierLabel, ordinal } from "../text";
 
 /** Where a seat sits on your screen: you at the bottom, then counter-clockwise (R-SEAT-1). */
@@ -163,9 +163,7 @@ export function Table({ conn }: { conn: Connection }) {
         <Scoreboard conn={conn} />
         <Feed items={feed} />
         {conn.error && <p className="error">{conn.error.message}</p>}
-        <button className="link" onClick={() => conn.send({ type: "leave" })}>
-          Leave the table
-        </button>
+        <LeaveButton onLeave={() => conn.send({ type: "leave" })} />
       </aside>
     </div>
   );

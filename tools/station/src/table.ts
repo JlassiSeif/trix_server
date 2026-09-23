@@ -13,6 +13,8 @@ export interface Ctx {
   stallMs: number;
   /** Every table created during the current scenario, so its findings survive a crash. */
   registry: Table[];
+  /** Restart the server the way a deploy does (only when the station runs its own server). */
+  restartServer?: () => Promise<void>;
 }
 
 export interface TableFinding {

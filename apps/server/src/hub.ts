@@ -3,15 +3,45 @@
 
 import type { ServerMessage } from "@trix/protocol";
 import { clip, log } from "./log";
-import { Room, RoomError, cleanName, randomId, type Conn } from "./room";
+import { Room, RoomError, cleanName, randomId, type Conn, type RoomSnapshot } from "./room";
 
 const ROOM_IDLE_MS = 6 * 60 * 60 * 1000; // rooms with nobody connected are dropped after 6 hours
+
+export interface HubSnapshot {
+  version: 1;
+  savedAt: string;
+  rooms: RoomSnapshot[];
+}
 
 export class Hub {
   readonly rooms = new Map<string, Room>();
   private readonly roomOf = new Map<Conn, Room>();
 
-  constructor(private readonly options: { seed?: () => number } = {}) {}
+  constructor(private readonly options: { seed?: () => number; maxRooms?: number; onChange?: () => void } = {}) {}
+
+  private roomHooks() {
+    return { seed: this.options.seed, onChange: this.options.onChange, onClose: (r: Room) => this.rooms.delete(r.id) };
+  }
+
+  snapshot(): HubSnapshot {
+    return { version: 1, savedAt: new Date().toISOString(), rooms: [...this.rooms.values()].map((r) => r.toJSON()) };
+  }
+
+  /** Bring saved rooms back. Rooms idle too long are dropped. Returns how many came back. */
+  restore(snap: HubSnapshot, now = Date.now()): number {
+    if (snap.version !== 1) throw new Error(`unknown state file version ${String(snap.version)}`);
+    for (const r of snap.rooms) {
+      if (now - r.lastActive > ROOM_IDLE_MS) continue;
+      const room = Room.fromJSON(r, this.roomHooks());
+      this.rooms.set(room.id, room);
+    }
+    for (const room of this.rooms.values()) room.wake();
+    return this.rooms.size;
+  }
+
+  stopTimers(): void {
+    for (const room of this.rooms.values()) room.freeze();
+  }
 
   receive(conn: Conn, raw: string): void {
     let msg: { type?: unknown; [k: string]: unknown };
@@ -64,9 +94,10 @@ export class Hub {
     // Check first: a refused request must never pull the player out of the table they're at.
     if (!cleanName(name)) throw new RoomError("BAD_NAME", "Pick a name (1 to 20 characters)");
     const previous = this.roomOf.get(conn);
+    if (this.rooms.size >= (this.options.maxRooms ?? Infinity)) throw new RoomError("SERVER_FULL", "The server has too many tables right now. Try again later.");
     let id = randomId(6);
     while (this.rooms.has(id)) id = randomId(6);
-    const room = new Room(id, { seed: this.options.seed, onClose: (r) => this.rooms.delete(r.id) });
+    const room = new Room(id, this.roomHooks());
     this.rooms.set(id, room);
     try {
       room.seatNewPlayer(conn, name, null);
