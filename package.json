@@ -1,0 +1,25 @@
+{
+  "name": "trix",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "engines": {
+    "node": ">=22.12"
+  },
+  "scripts": {
+    "dev": "concurrently -k -n server,web -c blue,magenta \"npm run dev -w @trix/server\" \"npm run dev -w @trix/web\"",
+    "build": "npm run build -w @trix/web && npm run build -w @trix/server",
+    "start": "npm run start -w @trix/server",
+    "test": "npm run test --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present"
+  },
+  "devDependencies": {
+    "@types/node": "26.6.2",
+    "concurrently": "10.0.5",
+    "typescript": "7.0.2",
+    "vitest": "5.0.1"
+  }
+}

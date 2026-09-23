@@ -30,7 +30,8 @@ Play Trix online with friends: a web app hosted on Seif's free Oracle Cloud mach
   8. [x] English; contract names unchanged
   9. [ ] Safe bot strategy: Claude drafts it in M3, Seif approves
   10. [ ] **Seif approves RULES.md**
-- [ ] **M1b Scaffold** (npm workspaces): `packages/engine`, `apps/server`, `apps/web`. `npm test` / `npm run build` / `npm run dev` all green.
+- [x] **M1b Scaffold** (2026-09-23): npm workspaces `packages/engine`, `apps/server` (Node + `ws`, bundled with esbuild), `apps/web` (React 19 + Vite 8). TypeScript 7, Vitest 5, dependencies pinned exactly.
+  Verified: `npm test`, `npm run typecheck` and `npm run build` are green. `npm start` serves the app, `/api/health`, the invite-link fallback `/r/<id>` and the WebSocket hello, and blocks path traversal. `npm run dev` does the same through Vite's forwarding to the server.
 - [ ] **M2 Engine** (test-first against RULES.md): a pure state machine, seeded deal, per-seat views, a test for every rule ID, the golden dineri round, and a fuzz test.
 - [ ] **M3 Server + minimal web table:** room, invite link, name, seat, reconnect with the same seat, a WebSocket protocol where the server checks every move, and a plain UI.
 - [ ] **M4 Visual rework:** a `<Card>` component drawing from Aisleriot `bonded.svg` (GPL-3+: include the notice), a layout that works on phones, animations. Our own cards later.
@@ -48,10 +49,10 @@ Found in the 2026-09-23 scan and smoke test of `archive/server-cpp` and `archive
 - Scores and the winner must reach the players. The server must not exit after one game.
 - Which contracts have been used is tracked by the server (the old code tracked it only in the client, via `available_games`).
 
-Smoke test reference (2026-09-23), round 1 `dineri`: all 8 tricks were checked by hand. With 10 > K, the trick winners, who leads next, and the scores lam3i 0 / bochra 20 / ldhaw 50 / klafez 10 were all correct. This becomes a golden test once the rank order is confirmed.
+Smoke test reference (2026-09-23), round 1 `dineri`: all 8 tricks were checked by hand. With 10 > K, the trick winners, who leads next, and the scores lam3i 0 / bochra 20 / ldhaw 50 / klafez 10 were all correct. The rank order is confirmed (R-DECK-2), so this is the golden test for M2. Under RULES.md it stays 0/20/50/10: the picker lam3i's ×2 applies to 0, and the last ♦ fell in the 8th trick, so no early ending (R-DIN-3).
 Hands dealt: lam3i `k_h;k_c;8_c;k_d;a_s;10_s;9_s;7_s` · bochra `q_h;j_c;7_c;a_d;q_d;9_d;k_s;j_s` · ldhaw `a_h;10_h;j_h;q_c;10_d;j_d;8_d;8_s` · klafez `9_h;8_h;7_h;a_c;10_c;9_c;7_d;q_s`.
 Tricks (leader first): K♦ Q♦ 10♦ 7♦ · 8♦ 9♥ K♥ A♦ · J♣ Q♣ 10♣ 8♣ · A♣ K♣ 7♣ 8♠ · 9♣ 10♠ 9♦ A♥ · 8♥ A♠ Q♥ 10♥ · J♥ 7♥ 9♠ K♠ · J♦ Q♠ 7♠ J♠.
 
 ## Open questions (for Seif)
 - Approval of `RULES.md`, plus its remaining OPEN points (kicked player coming back; bot strategy in M3).
-- M5: Oracle machine shape (ARM A1 / AMD micro) and OS; the domain name.
+- M5: Oracle machine shape (ARM A1 / AMD micro) and OS; the domain name. The machine needs Node ≥ 22.12 (required by Vitest and Vite).
