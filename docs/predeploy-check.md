@@ -65,5 +65,5 @@ Earlier checks, still passing: a refused join pulled a player out of their seat,
 ## Right after deploying
 
 1. `curl https://<domain>/api/health`.
-2. `npm run station -- --base https://<domain> --only S01,S14,S24`. S24 needs the station's own server, so against production it's skipped; run S01 and S14.
+2. `npm run station -- --base https://<domain> --only S01,S14`: a full game and the drop/return test against the live server (never the stress or flood scenarios).
 3. One real game with a phone and a laptop, including locking the phone for a minute.
