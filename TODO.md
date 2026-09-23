@@ -38,7 +38,11 @@ Play Trix online with friends: a web app hosted on Seif's free Oracle Cloud mach
   Rules for which no player choice exists are applied automatically: in trix, a seat with no legal card passes automatically (R-TRIX-4), and a finished seat is skipped.
 - [x] **Client baseline** (2026-09-23): 4 bots played a `dineri` contract on the old SDL client (`archive/client-sdl/tools/bot_driver.py`, Xephyr + XTEST). Screenshots and 28 observed behaviours (B-1 to B-28) are in `docs/client-baseline.md`.
 - [ ] **Seif edits `docs/client-baseline.md`** with the behaviour he wants. The result becomes the spec for the web client.
+- [x] **v0.5, playable with bots** (2026-09-23). Seif asked for it before the baseline edit, so M3 was pulled forward with a real UI rather than a plain one. Details under M3.
 - [ ] **M3 Server + minimal web table:** room, invite link, name, seat, reconnect with the same seat, a WebSocket protocol where the server checks every move, and a plain UI.
+  Status (v0.5): done. Room with an invite link, names, seats, bots in the lobby, automatic start, the server checking every move, rejoining with a seat token (a refresh keeps your seat), pause on disconnect with owner options (bot or end), kick and leave with a new link, score summary with Continue, game over with the loser first, and Ready to play again.
+  Verified: 16 server tests (`apps/server/test`). `apps/web/e2e/play-vs-bots.mjs` plays a whole game in Chromium against 3 bots through the UI, with no browser errors, and includes a refresh mid-game and a phone-size screenshot.
+  Design calls to confirm with Seif: click to play (no drag), you at the bottom with the next player on the right (counter-clockwise), the completed trick shown for 1.6 s with the winner highlighted, contract announcements as a banner, feed of events on the side, the scoreboard showing each player's contracts, R-TABLE-10 and R-TABLE-11.
 - [ ] **M4 Visual rework:** a `<Card>` component drawing from Aisleriot `bonded.svg` (GPL-3+: include the notice), a layout that works on phones, animations. Our own cards later.
 - [ ] **M5 Deploy:** Oracle machine, Node under systemd, Caddy for HTTPS, the domain.
 

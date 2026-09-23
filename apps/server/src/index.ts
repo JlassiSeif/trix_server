@@ -1,12 +1,14 @@
-// Trix server: serves the built web app and the game WebSocket.
-// Scaffold only (M1b). Rooms and game logic arrive in M3.
+// Trix server: serves the built web app and the game WebSocket (/ws).
 
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { readFile } from "node:fs/promises";
 import { extname, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
-import { WebSocketServer } from "ws";
+import { WebSocketServer, type WebSocket } from "ws";
 import { ENGINE_VERSION } from "@trix/engine";
+import type { ServerMessage } from "@trix/protocol";
+import { Hub } from "./hub";
+import { TIMING, type Conn } from "./room";
 
 const PORT = Number(process.env.PORT ?? 8080);
 const HOST = process.env.HOST ?? "127.0.0.1";
@@ -57,10 +59,44 @@ const server = createServer((req, res) => {
   });
 });
 
-const wss = new WebSocketServer({ server, path: "/ws" });
+// TRIX_SPEED=10 makes bots and countdowns 10x faster (automated tests only).
+const speed = Number(process.env.TRIX_SPEED ?? 1);
+if (speed > 1) for (const k of Object.keys(TIMING) as (keyof typeof TIMING)[]) TIMING[k] = Math.round(TIMING[k] / speed);
+
+const hub = new Hub();
+setInterval(() => hub.sweep(), 10 * 60 * 1000).unref();
+
+const wss = new WebSocketServer({ server, path: "/ws", maxPayload: 4096 });
+const alive = new WeakMap<WebSocket, boolean>();
+
 wss.on("connection", (socket) => {
-  socket.send(JSON.stringify({ type: "hello", engine: ENGINE_VERSION }));
+  const conn: Conn = {
+    send: (msg: ServerMessage) => {
+      if (socket.readyState === socket.OPEN) socket.send(JSON.stringify(msg));
+    },
+    close: () => socket.close(),
+  };
+  alive.set(socket, true);
+  socket.on("pong", () => alive.set(socket, true));
+  socket.on("message", (data) => hub.receive(conn, data.toString()));
+  socket.on("close", () => hub.disconnected(conn));
+  socket.on("error", () => socket.terminate());
 });
+
+// A dropped phone or wifi often never sends a close: ping every 15 s and drop silent sockets,
+// so the table notices the player is gone and pauses (R-TABLE-4).
+setInterval(() => {
+  for (const socket of wss.clients) {
+    if (!alive.get(socket)) {
+      socket.terminate();
+      continue;
+    }
+    alive.set(socket, false);
+    socket.ping();
+  }
+}, 15_000).unref();
+
+process.on("uncaughtException", (e) => console.error("Uncaught exception (server keeps running):", e));
 
 server.listen(PORT, HOST, () => {
   console.log(`trix server on http://${HOST}:${PORT} (web: ${WEB_DIST})`);

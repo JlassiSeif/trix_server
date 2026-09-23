@@ -106,6 +106,8 @@ The engine implements only what's written here. Every rule has an ID that the te
   2. **Resume without waiting:** the missing seat is played by the placeholder bot (R-BOT) until someone takes it.
   3. **End the game.**
 - **R-TABLE-8:** After the game ends, each player can click **Ready**. The next game starts when all 4 are ready. Seats stay the same, and the first picker is random again (R-SEAT-2).
+- **R-TABLE-10:** Before the game, the room owner can fill empty seats with **bots** (placeholder bots, R-BOT). A friend joining later through the invite link takes over a bot's seat. *(Added for v0.5 so Seif can test with bots; Seif to confirm.)*
+- **R-TABLE-11:** When a contract ends, everyone sees a score summary. The next deal starts when every human clicks **Continue**, or after **10 seconds**. *(Claude's design call under Seif's "up to good game design"; Seif to confirm.)*
 - **R-TABLE-9:** The interface is in **English** for now. Contracts are shown as `dineri`, `damet`, `pli`, `farcha`, `ray`, `general`, `trix`.
 
 ## 8. Placeholder bot (plays a missing seat when the owner resumes without waiting)
@@ -115,3 +117,4 @@ The engine implements only what's written here. Every rule has an ID that the te
 ## Changelog
 - 2026-09-23: Approved by Seif. On approval: leaving and being kicked generate a new invite link (R-TABLE-6), and the bot is a placeholder (R-BOT-2).
 - 2026-09-23: Seif added R-TRICK-6 (look at the last trick twice per contract). The exact moments when a look is allowed are assumed and marked as such.
+- 2026-09-23: v0.5 added R-TABLE-10 (bots in the lobby) and R-TABLE-11 (score summary, Continue or 10 s). Both are Claude's design calls, awaiting Seif's confirmation.

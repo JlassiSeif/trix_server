@@ -1,0 +1,276 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { placeholderBotAction, type Seat } from "@trix/engine";
+import type { ServerMessage } from "@trix/protocol";
+import { Hub } from "../src/hub";
+import type { Conn } from "../src/room";
+
+class FakeConn implements Conn {
+  inbox: ServerMessage[] = [];
+  closed = false;
+  send(msg: ServerMessage) {
+    this.inbox.push(structuredClone(msg));
+  }
+  close() {
+    this.closed = true;
+  }
+  last<T extends ServerMessage["type"]>(type: T): Extract<ServerMessage, { type: T }> {
+    const m = [...this.inbox].reverse().find((x) => x.type === type);
+    if (!m) throw new Error(`no ${type} message`);
+    return m as Extract<ServerMessage, { type: T }>;
+  }
+  errors() {
+    return this.inbox.filter((m) => m.type === "error").map((m) => (m as { code: string }).code);
+  }
+}
+
+let hub: Hub;
+const send = (conn: FakeConn, msg: object) => hub.receive(conn, JSON.stringify(msg));
+
+function createRoom(name = "Seif") {
+  const owner = new FakeConn();
+  send(owner, { type: "createRoom", name });
+  const joined = owner.last("joined");
+  const room = hub.rooms.get(joined.roomId)!;
+  return { owner, room, roomId: joined.roomId, token: joined.token };
+}
+
+function invite(owner: FakeConn) {
+  const path = owner.last("update").room.invitePath!;
+  return new URL(path, "http://x").searchParams.get("i")!;
+}
+
+/** Plays the human seat with the bot's logic, and clicks Continue between contracts. */
+function playHuman(conn: FakeConn, room: ReturnType<typeof createRoom>["room"], seat: Seat) {
+  const g = room.game!;
+  if (g.phase === "contractEnd" && !room.continued.has(seat)) return send(conn, { type: "continue" });
+  if (g.turn === seat && room.status === "playing") send(conn, { type: "action", action: placeholderBotAction(g, seat) });
+}
+
+beforeEach(() => {
+  vi.useFakeTimers();
+  hub = new Hub({ seed: () => 12345 });
+});
+afterEach(() => vi.useRealTimers());
+
+describe("joining (R-TABLE-1, R-TABLE-2)", () => {
+  it("makes the creator the owner, with an invite link only they can see", () => {
+    const { owner, room } = createRoom();
+    expect(owner.last("joined").seat).toBe(0);
+    expect(room.owner).toBe(0);
+    const guest = new FakeConn();
+    send(guest, { type: "joinRoom", roomId: room.id, invite: invite(owner), name: "Ali" });
+    expect(guest.last("joined").seat).toBe(1);
+    expect(guest.last("update").room.invitePath).toBeNull();
+    expect(owner.last("update").room.seats[1]).toMatchObject({ kind: "human", name: "Ali", connected: true });
+  });
+
+  it("refuses a wrong invite, a missing name and unknown rooms", () => {
+    const { owner, room } = createRoom();
+    const guest = new FakeConn();
+    send(guest, { type: "joinRoom", roomId: room.id, invite: "nope", name: "Ali" });
+    send(guest, { type: "joinRoom", roomId: room.id, invite: invite(owner), name: "   " });
+    send(guest, { type: "joinRoom", roomId: "zzzzzz", invite: "x", name: "Ali" });
+    expect(guest.errors()).toEqual(["BAD_INVITE", "BAD_NAME", "ROOM_NOT_FOUND"]);
+  });
+
+  it("cleans names: control characters stripped, 20 characters max", () => {
+    const { owner } = createRoom("  A\u0007li\n  the   great and powerful ");
+    expect(owner.last("update").room.seats[0]!.name).toBe("Ali the great and po");
+  });
+});
+
+describe("starting (R-TABLE-3)", () => {
+  it("starts on its own when the 4th seat is filled; only the owner adds bots", () => {
+    const { owner, room } = createRoom();
+    const guest = new FakeConn();
+    send(guest, { type: "joinRoom", roomId: room.id, invite: invite(owner), name: "Ali" });
+    send(guest, { type: "addBot", seat: 2 });
+    expect(guest.errors()).toContain("NOT_OWNER");
+    send(owner, { type: "addBot", seat: 2 });
+    expect(room.status).toBe("lobby");
+    send(owner, { type: "addBot", seat: 3 });
+    expect(room.status).toBe("playing");
+    expect(owner.last("update").game!.hand).toHaveLength(8);
+    expect(owner.last("update").room.seats.map((s) => s.name)).toEqual(["Seif", "Ali", "Bot 1", "Bot 2"]);
+  });
+});
+
+describe("a full game with one human and three bots", () => {
+  it("plays to the end; each player only ever sees their own hand", () => {
+    const { owner, room } = createRoom();
+    for (const s of [1, 2, 3]) send(owner, { type: "addBot", seat: s });
+    for (let i = 0; i < 20000 && room.status !== "finished"; i++) {
+      playHuman(owner, room, 0);
+      vi.advanceTimersByTime(500);
+    }
+    expect(room.status).toBe("finished");
+    expect(owner.errors()).toEqual([]);
+    const final = owner.last("update");
+    expect(final.game!.standings).not.toBeNull();
+    // No update ever carried another seat's cards or the full game state.
+    for (const m of owner.inbox) {
+      if (m.type !== "update" || !m.game) continue;
+      expect(m.game).not.toHaveProperty("hands");
+      expect(m.game.seat).toBe(0);
+    }
+  });
+
+  it("waits for the human to continue between contracts, or deals after the countdown", () => {
+    const { owner, room } = createRoom();
+    for (const s of [1, 2, 3]) send(owner, { type: "addBot", seat: s });
+    while (room.game!.phase !== "contractEnd") {
+      playHuman(owner, room, 0);
+      vi.advanceTimersByTime(500);
+    }
+    expect(owner.last("update").room.continueAt).toBeGreaterThan(Date.now());
+    vi.advanceTimersByTime(9000);
+    expect(room.game!.contractNo).toBe(1);
+    vi.advanceTimersByTime(1100);
+    expect(room.game!.contractNo).toBe(2);
+  });
+
+  it("R-TABLE-8: after the game, all Ready starts a new one with the same seats", () => {
+    const { owner, room } = createRoom();
+    for (const s of [1, 2, 3]) send(owner, { type: "addBot", seat: s });
+    room.game!.totals = [1001, 1001, 1001, 1001]; // the first contract ends the game
+    for (let i = 0; i < 5000 && room.status !== "finished"; i++) {
+      playHuman(owner, room, 0);
+      vi.advanceTimersByTime(500);
+    }
+    expect(room.status).toBe("finished");
+    send(owner, { type: "ready" });
+    expect(room.status).toBe("playing");
+    expect(room.game!.contractNo).toBe(1);
+    expect(room.game!.totals).toEqual([0, 0, 0, 0]);
+  });
+});
+
+describe("moves are checked by the engine", () => {
+  it("rejects illegal and malformed moves with an error to the sender only", () => {
+    const { owner, room } = createRoom();
+    for (const s of [1, 2, 3]) send(owner, { type: "addBot", seat: s });
+    const before = JSON.stringify(room.game);
+    const notMine = room.game!.picker === 0 ? { type: "play", card: "7_h" } : { type: "pick", contract: "dineri" };
+    send(owner, { type: "action", action: notMine });
+    send(owner, { type: "action", action: { type: "pick", contract: "belote" } });
+    send(owner, { type: "action", action: "garbage" });
+    expect(owner.errors().length).toBe(3);
+    expect(JSON.stringify(room.game)).toBe(before);
+  });
+
+  it("sends a look at the last trick only to the player who looked (R-TRICK-6)", () => {
+    const { owner, room } = createRoom();
+    const guest = new FakeConn();
+    send(guest, { type: "joinRoom", roomId: room.id, invite: invite(owner), name: "Ali" });
+    for (const s of [2, 3]) send(owner, { type: "addBot", seat: s });
+    const humans: [FakeConn, Seat][] = [[owner, 0], [guest, 1]];
+    // Force a trick contract and play until one trick is done.
+    while (!room.game!.lastTrick) {
+      for (const [c, s] of humans) {
+        const g = room.game!;
+        if (g.phase === "picking" && g.picker === s) send(c, { type: "action", action: { type: "pick", contract: "pli" } });
+        else playHuman(c, room, s);
+      }
+      vi.advanceTimersByTime(300);
+    }
+    send(guest, { type: "action", action: { type: "peekLastTrick" } });
+    expect(guest.last("update").events.map((e) => e.type)).toContain("lastTrickShown");
+    expect(owner.last("update").events.map((e) => e.type)).not.toContain("lastTrickShown");
+  });
+});
+
+describe("disconnects and seats (R-TABLE-4 to R-TABLE-7)", () => {
+  function tableWithGuest() {
+    const r = createRoom();
+    const guest = new FakeConn();
+    send(guest, { type: "joinRoom", roomId: r.room.id, invite: invite(r.owner), name: "Ali" });
+    const guestToken = guest.last("joined").token;
+    for (const s of [2, 3]) send(r.owner, { type: "addBot", seat: s });
+    return { ...r, guest, guestToken };
+  }
+
+  it("pauses when a player drops and resumes when they come back with their token", () => {
+    const { room, owner, guest, guestToken } = tableWithGuest();
+    hub.disconnected(guest);
+    expect(room.status).toBe("paused");
+    expect(owner.last("update").room.waitingFor).toEqual([1]);
+    const back = new FakeConn();
+    send(back, { type: "joinRoom", roomId: room.id, token: "wrong" });
+    expect(back.errors()).toEqual(["BAD_TOKEN"]);
+    send(back, { type: "joinRoom", roomId: room.id, token: guestToken });
+    expect(back.last("joined").seat).toBe(1);
+    expect(room.status).toBe("playing");
+  });
+
+  it("does not let bots move while paused", () => {
+    const { room, owner, guest } = tableWithGuest();
+    hub.disconnected(guest);
+    const before = JSON.stringify(room.game);
+    vi.advanceTimersByTime(60_000);
+    expect(JSON.stringify(room.game)).toBe(before);
+    send(owner, { type: "action", action: { type: "pick", contract: "dineri" } });
+    expect(owner.errors()).toContain("NOT_PLAYING");
+  });
+
+  it("owner can resume with a bot for the missing player, who takes the seat back on return", () => {
+    const { room, owner, guest, guestToken } = tableWithGuest();
+    hub.disconnected(guest);
+    send(owner, { type: "resumeWithBots" });
+    expect(room.status).toBe("playing");
+    expect(owner.last("update").room.seats[1]).toMatchObject({ name: "Ali", botPlaying: true });
+    const back = new FakeConn();
+    send(back, { type: "joinRoom", roomId: room.id, token: guestToken });
+    expect(owner.last("update").room.seats[1]).toMatchObject({ botPlaying: false, connected: true });
+  });
+
+  it("kick empties the seat, changes the invite link, and the old link stops working (R-TABLE-6)", () => {
+    const { room, owner, guest, guestToken } = tableWithGuest();
+    const oldInvite = invite(owner);
+    send(owner, { type: "kick", seat: 1 });
+    expect(guest.last("removed").reason).toBe("kicked");
+    expect(guest.closed).toBe(true);
+    expect(room.status).toBe("paused");
+    const newInvite = invite(owner);
+    expect(newInvite).not.toBe(oldInvite);
+
+    const kicked = new FakeConn();
+    send(kicked, { type: "joinRoom", roomId: room.id, token: guestToken });
+    send(kicked, { type: "joinRoom", roomId: room.id, invite: oldInvite, name: "Ali again" });
+    expect(kicked.errors()).toEqual(["BAD_TOKEN", "BAD_INVITE"]);
+
+    const replacement = new FakeConn();
+    send(replacement, { type: "joinRoom", roomId: room.id, invite: newInvite, name: "Sami" });
+    expect(replacement.last("joined").seat).toBe(1);
+    expect(replacement.last("update").game!.hand.length).toBeGreaterThan(0); // takes over the seat's hand
+    expect(room.status).toBe("playing");
+  });
+
+  it("leaving hands ownership to another human; the last human leaving closes the room", () => {
+    const { room, owner, guest } = tableWithGuest();
+    send(owner, { type: "leave" });
+    expect(room.owner).toBe(1);
+    expect(guest.last("update").room.invitePath).not.toBeNull();
+    send(guest, { type: "leave" });
+    expect(hub.rooms.has(room.id)).toBe(false);
+  });
+
+  it("owner can end the game and start again from the lobby", () => {
+    const { room, owner, guest } = tableWithGuest();
+    send(guest, { type: "endGame" });
+    expect(guest.errors()).toContain("NOT_OWNER");
+    send(owner, { type: "endGame" });
+    expect(room.status).toBe("lobby");
+    send(owner, { type: "startGame" });
+    expect(room.status).toBe("playing");
+  });
+});
+
+describe("hub robustness", () => {
+  it("answers junk with errors and never throws", () => {
+    const c = new FakeConn();
+    for (const raw of ["", "{", "null", "42", '{"type":5}', '{"type":"action"}', '{"type":"nope"}', '{"type":"joinRoom"}']) {
+      expect(() => hub.receive(c, raw)).not.toThrow();
+    }
+    expect(c.errors()).toEqual(["BAD_MESSAGE", "BAD_MESSAGE", "BAD_MESSAGE", "BAD_MESSAGE", "BAD_MESSAGE", "NOT_SEATED", "NOT_SEATED", "ROOM_NOT_FOUND"]);
+  });
+});
