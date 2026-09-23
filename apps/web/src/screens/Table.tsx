@@ -508,47 +508,153 @@ function Paused({ conn }: { conn: Connection }) {
 // ---------------------------------------------------------------------------
 // Side panel
 
+/** Competition ranking on totals, lowest first (R-GAME-9): ties share a rank (1, 1, 3, 4). */
+function ranking(totals: number[]): { order: Seat[]; rank: number[] } {
+  const order = [...SEATS].sort((a, b) => totals[a]! - totals[b]! || a - b);
+  const rank = totals.map((t) => 1 + totals.filter((x) => x < t).length);
+  return { order, rank };
+}
+
+/** Counts a number up (or down) to its new value, so score changes are visible. */
+function useCountUp(value: number, ms = 800): number {
+  const [shown, setShown] = useState(value);
+  const from = useRef(value);
+  useEffect(() => {
+    const start = performance.now();
+    const a = from.current;
+    let raf = 0;
+    const step = (now: number) => {
+      const k = Math.min(1, (now - start) / ms);
+      const v = Math.round(a + (value - a) * (1 - (1 - k) ** 3));
+      setShown(v);
+      from.current = v;
+      if (k < 1) raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [value, ms]);
+  return shown;
+}
+
+const ROW_H = 66;
+const MOVE_SHOW_MS = 5000;
+
+/** Leaderboard: ranked by total, rows slide when the order changes, with the last change shown. */
 function Scoreboard({ conn }: { conn: Connection }) {
   const room = conn.room!;
   const game = conn.game!;
   const isOwner = room.you === room.owner;
+  const { order, rank } = ranking(game.totals);
+
+  // What changed since the totals last moved: rank movement and the contract's score.
+  const prev = useRef<{ key: string; rank: number[] }>({ key: JSON.stringify(game.totals), rank });
+  const [change, setChange] = useState<{ moved: number[]; delta: number[]; at: number } | null>(null);
+  const key = JSON.stringify(game.totals);
+  useEffect(() => {
+    if (prev.current.key === key) return;
+    const last = game.history.at(-1);
+    setChange({
+      moved: rank.map((r, s) => prev.current.rank[s]! - r),
+      delta: last && JSON.stringify(last.totals) === key ? last.scores : game.totals.map(() => 0),
+      at: Date.now(),
+    });
+    prev.current = { key, rank };
+    const t = setTimeout(() => setChange((c) => (c && Date.now() - c.at >= MOVE_SHOW_MS - 50 ? null : c)), MOVE_SHOW_MS);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+
+  const worst = Math.max(...game.totals);
   return (
     <section className="scoreboard">
-      <h3>Scores</h3>
-      <table>
-        <tbody>
-          {SEATS.map((s) => {
-            const info = room.seats[s]!;
-            return (
-              <tr key={s} className={s === room.you ? "you" : ""}>
-                <td className="sb-name">
-                  {info.name ?? "Empty"}
-                  {s === room.owner && <span className="muted small"> (owner)</span>}
-                </td>
-                <td className="sb-total">{game.totals[s]}</td>
-                <td className="sb-contracts">
-                  {CONTRACT_ORDER.map((c) => (
-                    <span key={c} className={game.used[s]!.includes(c) ? "used" : ""} title={`${c}: ${game.used[s]!.includes(c) ? "already picked" : "still to pick"}`}>
-                      {SHORT[c]}
-                    </span>
-                  ))}
-                </td>
-                {isOwner && (
-                  <td>
-                    {s !== room.you && info.kind !== "empty" && (
-                      <button className="icon" title={`Remove ${info.name}`} onClick={() => conn.send({ type: "kick", seat: s })}>
-                        ×
-                      </button>
-                    )}
-                  </td>
-                )}
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-      <p className="muted small">Lowest score wins. Over 1000 and you're out; exactly 1000 resets to 0.</p>
+      <h3>Leaderboard</h3>
+      <div className="lb" style={{ height: ROW_H * 4 }}>
+        {SEATS.map((s) => (
+          <LeaderRow
+            key={s}
+            seat={s}
+            position={order.indexOf(s)}
+            rank={rank[s]!}
+            tied={rank.filter((r) => r === rank[s]).length > 1}
+            last={game.totals[s] === worst && worst > 0 && rank[s] !== 1}
+            conn={conn}
+            moved={change?.moved[s] ?? 0}
+            delta={change?.delta[s] ?? 0}
+            showKick={isOwner && s !== room.you && room.seats[s]!.kind !== "empty"}
+          />
+        ))}
+      </div>
+      <p className="muted small">Lowest score leads. Over 1000 and you're out; exactly 1000 resets to 0.</p>
     </section>
+  );
+}
+
+function LeaderRow(props: {
+  seat: Seat;
+  position: number;
+  rank: number;
+  tied: boolean;
+  last: boolean;
+  conn: Connection;
+  moved: number;
+  delta: number;
+  showKick: boolean;
+}) {
+  const { seat: s, conn } = props;
+  const room = conn.room!;
+  const game = conn.game!;
+  const info = room.seats[s]!;
+  const total = game.totals[s]!;
+  const shown = useCountUp(total);
+  const danger = Math.max(0, Math.min(1, total / 1000));
+  const level = total >= 850 ? "high" : total >= 650 ? "mid" : "low";
+  return (
+    <div
+      className={`lb-row ${s === room.you ? "you" : ""} ${props.rank === 1 ? "leader" : ""} ${props.last ? "last" : ""}`}
+      style={{ transform: `translateY(${props.position * ROW_H}px)`, height: ROW_H - 6 }}
+    >
+      <div className={`lb-rank ${props.tied ? "tied" : ""}`} title={props.tied ? `tied for ${props.rank}` : undefined}>
+        {props.tied ? `=${props.rank}` : props.rank}
+      </div>
+      <div className="lb-main">
+        <div className="lb-top">
+          <span className="lb-name">
+            {info.name ?? "Empty"}
+            {s === room.you && <span className="muted small"> (you)</span>}
+          </span>
+          {props.moved !== 0 && (
+            <span className={`lb-move ${props.moved > 0 ? "up" : "down"}`} title={props.moved > 0 ? `up ${props.moved}` : `down ${-props.moved}`}>
+              {props.moved > 0 ? "▲" : "▼"}
+              {Math.abs(props.moved)}
+            </span>
+          )}
+          <span className="lb-total">{shown}</span>
+        </div>
+        <div className="lb-bottom">
+          <div className="lb-bar" title={`${total} / 1000`}>
+            <div className={`lb-fill ${level}`} style={{ width: `${danger * 100}%` }} />
+          </div>
+          {props.delta !== 0 && (
+            <span className={`lb-delta ${props.delta > 0 ? "bad" : "good"}`}>
+              {props.delta > 0 ? "+" : ""}
+              {props.delta}
+            </span>
+          )}
+        </div>
+        <div className="sb-contracts">
+          {CONTRACT_ORDER.map((c) => (
+            <span key={c} className={game.used[s]!.includes(c) ? "used" : ""} title={`${c}: ${game.used[s]!.includes(c) ? "already picked" : "still to pick"}`}>
+              {SHORT[c]}
+            </span>
+          ))}
+        </div>
+      </div>
+      {props.showKick && (
+        <button className="icon lb-kick" title={`Remove ${info.name}`} onClick={() => conn.send({ type: "kick", seat: s })}>
+          ×
+        </button>
+      )}
+    </div>
   );
 }
 

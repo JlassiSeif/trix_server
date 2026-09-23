@@ -188,6 +188,43 @@ input { font: inherit; padding: 0.55rem 0.7rem; border-radius: 8px; border: 1px 
 .paused .invite { margin-top: 0.5rem; }
 .offline { position: absolute; top: 0; left: 0; right: 0; background: var(--red); color: white; text-align: center; padding: 0.3rem; z-index: 40; }
 
+/* Side panel: leaderboard (rows slide to their rank) */
+.lb { position: relative; }
+.lb-row {
+  position: absolute; left: 0; right: 0; top: 0; display: flex; align-items: center; gap: 0.6rem; padding: 0.3rem 0.5rem;
+  border-radius: 10px; background: rgba(255,255,255,0.04); transition: transform 0.7s cubic-bezier(0.2, 0.8, 0.2, 1), background 0.3s;
+}
+.lb-row.you { background: rgba(242,193,78,0.10); }
+.lb-rank {
+  flex: none; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  font-weight: 800; background: rgba(255,255,255,0.1); position: relative;
+}
+.lb-row.leader .lb-rank { background: var(--gold); color: #2a1f00; box-shadow: 0 0 12px rgba(242,193,78,0.6); }
+.lb-row.last .lb-rank { background: var(--red); color: white; }
+.lb-rank.tied { font-size: 0.78rem; letter-spacing: -0.02em; }
+.lb-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.lb-top { display: flex; align-items: baseline; gap: 0.4rem; }
+.lb-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.lb-row.you .lb-name { color: var(--gold); }
+.lb-total { font-weight: 800; font-size: 1.15rem; font-variant-numeric: tabular-nums; }
+.lb-move { font-size: 0.72rem; font-weight: 700; animation: lbpop 0.35s ease-out; }
+.lb-move.up { color: #7bd88f; }
+.lb-move.down { color: #ff8a7a; }
+.lb-bottom { display: flex; align-items: center; gap: 0.4rem; }
+.lb-bar { flex: 1; height: 5px; border-radius: 3px; background: rgba(255,255,255,0.1); overflow: hidden; }
+.lb-fill { height: 100%; border-radius: 3px; transition: width 0.8s ease-out, background 0.4s; }
+.lb-fill.low { background: #5fbf7f; }
+.lb-fill.mid { background: #e5a93b; }
+.lb-fill.high { background: #e0533f; }
+.lb-delta { font-size: 0.75rem; font-weight: 800; animation: lbpop 0.35s ease-out; }
+.lb-delta.bad { color: #ff8a7a; }
+.lb-delta.good { color: #7bd88f; }
+.lb-kick { flex: none; align-self: flex-start; }
+.lb .sb-contracts { flex-wrap: nowrap; gap: 2px; }
+.lb .sb-contracts span { font-size: 0.52rem; padding: 0 0.15rem; line-height: 1.35; }
+
+@keyframes lbpop { from { transform: scale(0.6); opacity: 0; } }
+
 /* Side panel */
 .scoreboard table { width: 100%; border-collapse: collapse; }
 .scoreboard td { padding: 0.35rem 0.2rem; border-bottom: 1px solid rgba(255,255,255,0.08); vertical-align: middle; }
