@@ -1,0 +1,109 @@
+# Trix: rules (the spec)
+
+**Status: DRAFT, not yet approved by Seif.**
+Sources: [docs/rules-input.md](docs/rules-input.md) (Seif's description, verbatim) plus the Q&A of 2026-09-23.
+The engine implements only what's written here. Every rule has an ID that the tests cite. Points marked **OPEN** are undecided and must not be implemented until they're answered.
+
+## Glossary
+- **Game:** the whole match, from the first contract until someone is out or all contracts are played.
+- **Contract:** one of the 7 mini games, played with one deal of the cards.
+- **Picker:** the player who chose the current contract.
+- **Trick (pli):** 4 cards, one from each player.
+- **Won pile:** the cards a player has taken in tricks during the current contract.
+- **Score:** points are bad. The lowest total wins.
+
+## 1. Deck and cards
+- **R-DECK-1:** 32 cards: 7, 8, 9, 10, J, Q, K, A in ♥ ♣ ♦ ♠.
+- **R-DECK-2:** Rank, lowest to highest: **7 8 9 J Q K 10 A**. The same order is used for tricks and for the trix stacks.
+- **R-DECK-3:** Every contract starts with a fresh shuffle and deal, 8 cards each. The deal happens **before** the pick, so the picker chooses after seeing their hand.
+
+## 2. Seats and turn order
+- **R-SEAT-1:** 4 players in fixed seats. All turn order (picking, playing cards, trix turns) goes **counter-clockwise**.
+- **R-SEAT-2:** The first picker of the game is chosen at random.
+
+## 3. Game structure
+- **R-GAME-1:** Each player has their own set of 7 contracts: `dineri`, `damet`, `pli`, `farcha`, `ray`, `general`, `trix`. A player can pick each of their own contracts once. What other players have picked doesn't matter.
+- **R-GAME-2:** The picker moves counter-clockwise after every contract. So there are at most 4 × 7 = **28 contracts**, and each player's 7th pick is forced (it's the only one they have left).
+- **R-GAME-3:** Each contract runs: deal → the picker chooses one of their unused contracts → play → score.
+- **R-GAME-4:** A player may pick `trix` only if they hold at least one jack.
+- **R-GAME-5:** Exception: if `trix` is a player's last remaining contract (forced) and they hold no jack, trix is still played. The first jack is placed by the next player counter-clockwise who holds a jack (see R-TRIX-2).
+- **R-GAME-6:** After each contract, its scores are added to the running totals. Then:
+  1. Any total of **exactly 1000** is reset to **0**.
+  2. If any total is **strictly over 1000**, the game is over.
+- **R-GAME-7:** The game also ends after the 28th contract.
+- **R-GAME-8:** Totals can go negative (through trix).
+- **R-GAME-9:** At the end of the game, the lowest total wins and the highest total loses. Equal totals are ties, with no tie-breaker.
+- **R-GAME-10:** The result screen puts the **loser** front and centre (the player who went over 1000, or otherwise the highest total), with the winner second.
+
+## 4. Trick play (every contract except trix)
+- **R-TRICK-1:** The picker leads the first trick.
+- **R-TRICK-2:** You must follow the led suit if you can. Otherwise you may play any card. There is no other obligation (you don't have to play higher).
+- **R-TRICK-3:** The highest card of the led suit wins the trick. There are no trumps, and a card of another suit never wins.
+- **R-TRICK-4:** The winner of a trick leads the next one.
+- **R-TRICK-5:** A won trick goes to the winner's won pile, and contracts are scored from the won piles.
+
+## 5. Multipliers
+- **R-MULT-1:** The **picker's** score for their contract is **×2**, including bonuses. Other players' scores are not multiplied.
+- **R-MULT-2:** For a player's **7th (forced) pick**, their score is **×4** instead of ×2.
+- **R-MULT-3:** Multipliers never apply to `trix`.
+- **R-MULT-4:** The ray declarer's −50 (R-RAY-6) is never multiplied. So the picker's score = (card points + bonuses) × multiplier, then the −50 is added if it applies.
+
+## 6. Contracts
+
+### Dineri (diamonds)
+- **R-DIN-1:** +10 for each ♦ in a player's won pile.
+- **R-DIN-2:** A player who takes all 8 ♦ scores **+150 instead of 80**.
+- **R-DIN-3:** The contract ends after the trick in which the last ♦ is taken.
+
+### Damet (queens)
+- **R-DAM-1:** +20 for each queen in a player's won pile.
+- **R-DAM-2:** The contract ends after the trick in which the last queen is taken. There is no bonus for taking all 4.
+
+### Pli (tricks)
+- **R-PLI-1:** +10 for each trick won. All 8 tricks are played.
+- **R-PLI-2:** A player who wins all 8 tricks scores **+150 instead of 80**.
+
+### Farcha (last trick)
+- **R-FAR-1:** All 8 tricks are played. Only the 8th trick counts: whoever wins it scores +100.
+
+### Ray (king of hearts)
+- **R-RAY-1:** Whoever takes the trick containing K♥ scores +100.
+- **R-RAY-2:** The contract ends after that trick.
+- **R-RAY-3:** **Declaration.** The player holding K♥ may declare it on their first turn of the contract, before playing their first card. Declaring is optional: playing a card without declaring means they chose not to.
+- **R-RAY-4:** If K♥ was declared, whoever takes it scores **+200** instead of +100, including the declarer themselves.
+- **R-RAY-5:** There is no special obligation to play K♥. Normal follow-suit applies: if hearts is led and K♥ is the holder's only heart, they must play it.
+- **R-RAY-6:** If K♥ was declared and **someone else** takes it, the declarer scores **−50**. This −50 is **never multiplied**, even when the declarer is the picker. It is added after the multiplier (R-MULT-4).
+
+### General (everything at once)
+- **R-GEN-1:** Dineri, damet, pli, farcha and ray are all scored together in one contract, including their special rules (R-DIN-2, R-PLI-2, R-RAY-3 to R-RAY-6).
+- **R-GEN-2:** There is no early ending: all 8 tricks are always played (farcha needs the 8th).
+- **R-GEN-3:** A player who wins **all 8 tricks** (and so collects every point of all 5 contracts) scores **0** for the contract, overriding everything else.
+
+### Trix (stacking; the only contract that lowers scores)
+- **R-TRIX-1:** There are 4 stacks on the table, one per suit. Each stack starts with its jack and builds **up J→Q→K→10→A** and **down J→9→8→7**.
+- **R-TRIX-2:** The picker places the first card, choosing which of their jacks. In the forced case with no jack (R-GAME-5), the first counter-clockwise player holding a jack places the first jack, and the players before them pass.
+- **R-TRIX-3:** Turns then go counter-clockwise. A legal play is either:
+  - a jack of a suit whose stack hasn't started yet, or
+  - the next card up or down on a stack that has started.
+- **R-TRIX-4:** A player must play if they have any legal card (a jack counts). They pass only when they have no legal card.
+- **R-TRIX-5:** Placing an **ace** gives an immediate extra turn. If the player then has no legal card, they pass.
+- **R-TRIX-6:** The first player to empty their hand scores **−100**, and the second scores **−50**. Play stops as soon as the second player finishes, and the other two score 0.
+- **R-TRIX-7:** No multipliers (R-MULT-3).
+
+## 7. Table (online play)
+- **R-TABLE-1:** One table of 4. A room is joined through an invite link; each player picks a name and takes a seat.
+- **R-TABLE-2:** The player who creates the room is the **room owner**.
+- **R-TABLE-3:** The game starts **automatically** as soon as the 4th player is seated.
+- **R-TABLE-4:** If a player disconnects mid-game, the table **pauses** until they come back (same seat, same hand, same score).
+- **R-TABLE-5:** While the table is paused, the room owner can:
+  1. **Give the seat to someone new:** a new person joins through the invite link and takes over the seat (its hand, score and remaining contracts), and the game resumes.
+  2. **Resume without waiting:** the empty seat is played by the **safe bot** (R-BOT) until its player returns.
+  3. **End the game.**
+- **R-TABLE-6:** The room owner can **kick** any player at any time. The kicked player's seat becomes empty, and the table pauses as in R-TABLE-4. **OPEN:** can a kicked player reclaim their seat by reopening the link (R-TABLE-7), or are they locked out?
+- **R-TABLE-7:** A player who returns (reopens the link in the same browser) takes their seat back immediately, even if the bot is playing it.
+- **R-TABLE-8:** After the game ends, each player can click **Ready**. The next game starts when all 4 are ready. Seats stay the same, and the first picker is random again (R-SEAT-2).
+- **R-TABLE-9:** The interface is in **English** for now. Contracts are shown as `dineri`, `damet`, `pli`, `farcha`, `ray`, `general`, `trix`.
+
+## 8. Safe bot (plays an empty seat when the owner resumes without waiting)
+- **R-BOT-1:** The bot only ever makes legal moves, using the same engine rules as a human player.
+- **R-BOT-2:** Goal: avoid taking points. **OPEN:** Claude drafts the exact strategy (contract choice, card play, ray declaration, trix) during M3, and Seif approves it before it's built. Until then, the bot plays the lowest legal card as a placeholder.

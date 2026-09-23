@@ -19,14 +19,17 @@ Play Trix online with friends: a web app hosted on Seif's free Oracle Cloud mach
 ## Milestones
 - [x] **M0 Housekeeping:** old code moved to `archive/`, `.gitignore` updated.
 - [ ] **M1 Rules walkthrough → `RULES.md`.** One topic at a time, and every rule gets an ID (`R-…`). Done when Seif approves it.
-  1. [ ] Deck and ranking
-  2. [ ] Seating, turn direction, dealing, who leads first
-  3. [ ] Contract structure, picker rotation, end of game, winner
-  4. [ ] Each contract: `ray`, `damet`, `dineri`, `pli`, `farcha`, `general` (early endings, scoring)
-  5. [ ] The `trix` contract
-  6. [ ] Legal plays (following suit and any other constraints)
-  7. [ ] Table flow: game start, disconnect, refresh, end of game
-  8. [ ] UI language and naming
+  Seif's description is saved verbatim in `docs/rules-input.md`. The `RULES.md` draft was written 2026-09-23.
+  1. [x] Deck and ranking
+  2. [x] Seating, turn direction, dealing, who leads first
+  3. [x] Contract structure, picker rotation, end of game, winner, result screen (loser shown first)
+  4. [x] Each contract, including sweeps (150 instead of 80), ray declaration (−50 to the declarer, never multiplied), general (all 8 tricks → 0)
+  5. [x] The `trix` contract
+  6. [x] Legal plays
+  7. [x] Table flow: automatic start, pause on disconnect, owner powers, kick, return, Ready to play again (open: can a kicked player come back?)
+  8. [x] English; contract names unchanged
+  9. [ ] Safe bot strategy: Claude drafts it in M3, Seif approves
+  10. [ ] **Seif approves RULES.md**
 - [ ] **M1b Scaffold** (npm workspaces): `packages/engine`, `apps/server`, `apps/web`. `npm test` / `npm run build` / `npm run dev` all green.
 - [ ] **M2 Engine** (test-first against RULES.md): a pure state machine, seeded deal, per-seat views, a test for every rule ID, the golden dineri round, and a fuzz test.
 - [ ] **M3 Server + minimal web table:** room, invite link, name, seat, reconnect with the same seat, a WebSocket protocol where the server checks every move, and a plain UI.
@@ -50,9 +53,5 @@ Hands dealt: lam3i `k_h;k_c;8_c;k_d;a_s;10_s;9_s;7_s` · bochra `q_h;j_c;7_c;a_d
 Tricks (leader first): K♦ Q♦ 10♦ 7♦ · 8♦ 9♥ K♥ A♦ · J♣ Q♣ 10♣ 8♣ · A♣ K♣ 7♣ 8♠ · 9♣ 10♠ 9♦ A♥ · 8♥ A♠ Q♥ 10♥ · J♥ 7♥ 9♠ K♠ · J♦ Q♠ 7♠ J♠.
 
 ## Open questions (for Seif)
-- All of M1 (the rules). Points the old code raises:
-  - 32 cards, 8 each? Rank 7<8<9<J<Q<K<10<A (the code has 10 above K)?
-  - Scoring in the code: dineri 10/♦, damet 20/Q, ray 500 for K♥, pli 10/trick, farcha 500 for the last trick, general = the sum, game ends when a score passes 5000. Are these right?
-  - Player names: the old server hardcoded `lam3i, bochra, ldhaw, klafez`. The new flow lets players choose names.
-- What happens when a player disconnects mid-game (pause for reconnect, a bot, abandon)?
+- Approval of `RULES.md`, plus its remaining OPEN points (kicked player coming back; bot strategy in M3).
 - M5: Oracle machine shape (ARM A1 / AMD micro) and OS; the domain name.
