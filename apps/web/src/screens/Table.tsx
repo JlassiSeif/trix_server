@@ -51,10 +51,13 @@ export function Table({ conn }: { conn: Connection }) {
   const counter = useRef(0);
 
   // Game events drive the feed, the toasts, and the completed-trick pause.
+  // Subscribe once: `conn` is a new object on every render, but `onEvents` is stable. Re-subscribing
+  // on every render used to cancel the timers that hide toasts, so they stayed on screen.
+  const onEvents = conn.onEvents;
   useEffect(() => {
     const timers: ReturnType<typeof setTimeout>[] = [];
     const later = (fn: () => void, ms: number) => timers.push(setTimeout(fn, ms));
-    const off = conn.onEvents((events: GameEvent[], r: RoomView) => {
+    const off = onEvents((events: GameEvent[], r: RoomView) => {
       const nameNow = (s: Seat) => r.seats[s]?.name ?? `Seat ${s + 1}`;
       const lines = events.map((e) => describe(e, nameNow, r.you)).filter((t): t is string => t !== null);
       if (lines.length) setFeed((f) => [...f, ...lines.map((text) => ({ id: ++counter.current, text }))].slice(-60));
@@ -65,6 +68,7 @@ export function Table({ conn }: { conn: Connection }) {
           later(() => setToast((cur) => (cur?.id === t.id ? null : cur)), ms);
         };
         if (e.type === "dealt" || e.type === "picked") setLinger(null);
+        if (e.type === "dealt") setToast(null); // a new deal starts clean
         if (e.type === "trickWon") {
           setLinger({ cards: e.cards, winner: e.seat });
           later(() => setLinger((cur) => (cur?.cards === e.cards ? null : cur)), LINGER_MS);
@@ -85,7 +89,7 @@ export function Table({ conn }: { conn: Connection }) {
       off();
       timers.forEach(clearTimeout);
     };
-  }, [conn]);
+  }, [onEvents]);
 
   const plays = new Set(game.legal.flatMap((a) => (a.type === "play" ? [a.card] : [])));
   const canDeclare = game.legal.some((a) => a.type === "declareKing");

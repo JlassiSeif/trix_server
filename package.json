@@ -15,7 +15,8 @@
     "start": "npm run start -w @trix/server",
     "test": "npm run test --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
-    "e2e": "node apps/web/e2e/play-vs-bots.mjs e2e-out"
+    "e2e": "node apps/web/e2e/play-vs-bots.mjs e2e-out",
+    "e2e:timed": "node apps/web/e2e/timed-ui.mjs"
   },
   "devDependencies": {
     "@types/node": "26.6.2",
