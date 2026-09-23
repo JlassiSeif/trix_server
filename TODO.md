@@ -36,6 +36,8 @@ Play Trix online with friends: a web app hosted on Seif's free Oracle Cloud mach
   60 tests: every game rule ID in RULES.md is cited by a test (the `R-TABLE-*` rules are for M3), plus the golden smoke-test dineri round (0/20/50/10) and a fuzz test of 150 random games. The fuzz checks that all 32 cards are always accounted for, bad moves are rejected without changing the state, totals are consistent and every game ends.
   Measured coverage of the random games: forced trix without a jack, exact-1000 resets, ×4 forced picks, the declarer's −50, trix passes and ace extra turns, early endings, and both ways a game can end are all reached.
   Rules for which no player choice exists are applied automatically: in trix, a seat with no legal card passes automatically (R-TRIX-4), and a finished seat is skipped.
+- [x] **Client baseline** (2026-09-23): 4 bots played a `dineri` contract on the old SDL client (`archive/client-sdl/tools/bot_driver.py`, Xephyr + XTEST). Screenshots and 28 observed behaviours (B-1 to B-28) are in `docs/client-baseline.md`.
+- [ ] **Seif edits `docs/client-baseline.md`** with the behaviour he wants. The result becomes the spec for the web client.
 - [ ] **M3 Server + minimal web table:** room, invite link, name, seat, reconnect with the same seat, a WebSocket protocol where the server checks every move, and a plain UI.
 - [ ] **M4 Visual rework:** a `<Card>` component drawing from Aisleriot `bonded.svg` (GPL-3+: include the notice), a layout that works on phones, animations. Our own cards later.
 - [ ] **M5 Deploy:** Oracle machine, Node under systemd, Caddy for HTTPS, the domain.
@@ -58,5 +60,6 @@ Hands dealt: lam3i `k_h;k_c;8_c;k_d;a_s;10_s;9_s;7_s` · bochra `q_h;j_c;7_c;a_d
 Tricks (leader first): K♦ Q♦ 10♦ 7♦ · 8♦ 9♥ K♥ A♦ · J♣ Q♣ 10♣ 8♣ · A♣ K♣ 7♣ 8♠ · 9♣ 10♠ 9♦ A♥ · 8♥ A♠ Q♥ 10♥ · J♥ 7♥ 9♠ K♠ · J♦ Q♠ 7♠ J♠.
 
 ## Open questions (for Seif)
-- Approval of `RULES.md`, plus its remaining OPEN points (kicked player coming back; bot strategy in M3).
+- Between contracts: does the next deal come automatically after a few seconds on a score summary, or does it wait until all 4 click Continue?
+- R-TRICK-6 assumptions: a look at the last trick is allowed at any moment (not only on your turn) and shows who played each card.
 - M5: Oracle machine shape (ARM A1 / AMD micro) and OS; the domain name. The machine needs Node ≥ 22.12 (required by Vitest and Vite).
