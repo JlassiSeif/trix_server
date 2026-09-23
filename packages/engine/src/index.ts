@@ -1,4 +1,9 @@
-// The Trix rules engine: a pure state machine with no I/O.
-// Only rules written in RULES.md (and approved) are implemented here; see M2 in TODO.md.
+// The Trix rules engine: a pure state machine with no I/O. It implements RULES.md (approved 2026-09-23).
 
-export const ENGINE_VERSION = "0.0.0";
+export const ENGINE_VERSION = "0.1.0";
+
+export * from "./cards";
+export * from "./scoring";
+export * from "./game";
+export * from "./view";
+export * from "./bot";

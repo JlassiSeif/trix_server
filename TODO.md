@@ -32,13 +32,17 @@ Play Trix online with friends: a web app hosted on Seif's free Oracle Cloud mach
   10. [ ] **Seif approves RULES.md**
 - [x] **M1b Scaffold** (2026-09-23): npm workspaces `packages/engine`, `apps/server` (Node + `ws`, bundled with esbuild), `apps/web` (React 19 + Vite 8). TypeScript 7, Vitest 5, dependencies pinned exactly.
   Verified: `npm test`, `npm run typecheck` and `npm run build` are green. `npm start` serves the app, `/api/health`, the invite-link fallback `/r/<id>` and the WebSocket hello, and blocks path traversal. `npm run dev` does the same through Vite's forwarding to the server.
-- [ ] **M2 Engine** (test-first against RULES.md): a pure state machine, seeded deal, per-seat views, a test for every rule ID, the golden dineri round, and a fuzz test.
+- [x] **M2 Engine** (2026-09-23), `packages/engine`: a pure state machine (`createGame`, `applyAction`, `legalActions`, `viewFor`) with a seeded deal and the placeholder bot.
+  60 tests: every game rule ID in RULES.md is cited by a test (the `R-TABLE-*` rules are for M3), plus the golden smoke-test dineri round (0/20/50/10) and a fuzz test of 150 random games. The fuzz checks that all 32 cards are always accounted for, bad moves are rejected without changing the state, totals are consistent and every game ends.
+  Measured coverage of the random games: forced trix without a jack, exact-1000 resets, ×4 forced picks, the declarer's −50, trix passes and ace extra turns, early endings, and both ways a game can end are all reached.
+  Rules for which no player choice exists are applied automatically: in trix, a seat with no legal card passes automatically (R-TRIX-4), and a finished seat is skipped.
 - [ ] **M3 Server + minimal web table:** room, invite link, name, seat, reconnect with the same seat, a WebSocket protocol where the server checks every move, and a plain UI.
 - [ ] **M4 Visual rework:** a `<Card>` component drawing from Aisleriot `bonded.svg` (GPL-3+: include the notice), a layout that works on phones, animations. Our own cards later.
 - [ ] **M5 Deploy:** Oracle machine, Node under systemd, Caddy for HTTPS, the domain.
 
 ## Lessons from the old code: the new engine must get these right
 Found in the 2026-09-23 scan and smoke test of `archive/server-cpp` and `archive/client-sdl`. Each item becomes an engine or server test.
+Status: the engine-side items (won piles reset every deal, early endings, the engine owns hands and validates every move, trix, a single contract list, used contracts tracked in state) are covered by M2 tests. The server-side items (disconnects, scores reaching players, not exiting after one game) belong to M3.
 - Cards each player has taken must be cleared between rounds (the old code re-scored earlier rounds: `logic.hpp:31`).
 - An early round ending (e.g. `ray` at K♥) must close out the trick cleanly. The old code left stale cards, counted K♥ twice, and left the clients stuck (`logic.hpp:201-209`).
 - The server owns every hand and checks every move (the old server trusted the client; only the client enforced follow-suit).
