@@ -17,7 +17,7 @@ export interface Outcome {
 export interface Scenario {
   id: string;
   title: string;
-  group: "normal flow" | "stress" | "connections" | "hostile input" | "permissions";
+  group: "normal flow" | "stress" | "connections" | "hostile input" | "permissions" | "security";
   expected: string;
   /** Server notices this scenario provokes on purpose (not replies to a message). */
   expectsNotices?: string[];

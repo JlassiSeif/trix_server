@@ -390,3 +390,14 @@ describe("R-TABLE-12: room ownership passes on", () => {
     expect(room.owner).toBe(2);
   });
 });
+
+describe("no impersonation at a table", () => {
+  it("refuses a name already at the table, whatever the case or spacing", () => {
+    const { owner, room } = createRoom("Seif");
+    for (const name of ["Seif", "SEIF", "  seif  "]) {
+      const c = new FakeConn();
+      send(c, { type: "joinRoom", roomId: room.id, invite: invite(owner), name });
+      expect(c.errors()).toEqual(["NAME_TAKEN"]);
+    }
+  });
+});

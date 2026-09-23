@@ -1,7 +1,7 @@
 // The testing station: starts a server, runs the scenarios, writes a report.
 //
 //   npm run station                         all scenarios
-//   npm run station -- --only S01,S14       some of them
+//   npm run station -- --only S01,S14       some of them (security: --only X01,X02,…)
 //   npm run station -- --tables 40 --speed 20 --seed 7
 //   npm run station -- --base http://127.0.0.1:8080   against a running server (no server log analysis)
 //   npm run station -- --server-js path/to/server.js  against another server build (used by mutants.ts)
@@ -9,7 +9,10 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { createWriteStream, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { SCENARIOS, type Outcome } from "./scenarios";
+import { SCENARIOS as BASE, type Outcome } from "./scenarios";
+import { SECURITY } from "./security";
+
+const SCENARIOS = [...BASE, ...SECURITY];
 import type { Ctx } from "./table";
 
 const args = process.argv.slice(2);
@@ -33,7 +36,9 @@ async function startServer(): Promise<{ proc: ChildProcess | null; http: string 
   const log = serverLog;
   const proc = spawn(process.execPath, [serverJs || join(root, "apps/server/dist/index.js")], {
     // Rooms are saved to the run folder, so a restart (S24) brings them back, as in production.
-    env: { ...process.env, PORT: String(serverPort), TRIX_SPEED: String(speed), TRIX_LOG_LEVEL: "debug", TRIX_STATE_FILE: join(dir, "rooms.json") },
+    env: { ...process.env, PORT: String(serverPort), TRIX_SPEED: String(speed), TRIX_LOG_LEVEL: "debug", TRIX_STATE_FILE: join(dir, "rooms.json"),
+      // As in production behind Caddy: client addresses from X-Forwarded-For, and only our own site may connect.
+      TRIX_TRUST_PROXY: "1", TRIX_ORIGINS: "https://trix.test" },
     stdio: ["ignore", "pipe", "pipe"],
   });
   proc.stderr!.on("data", (d: Buffer) => log.write(d));
@@ -172,6 +177,7 @@ const t0 = Date.now();
 let { proc, http } = await startServer();
 const ctx: Ctx = { httpUrl: http, wsUrl: http.replace(/^http/, "ws") + "/ws", dir: join(dir, "clients"), seed, stallMs: 5000, registry: [] };
 if (proc) {
+  ctx.serverLog = join(dir, "server.log");
   ctx.restartServer = async () => {
     const old = proc!;
     await new Promise((ok) => {

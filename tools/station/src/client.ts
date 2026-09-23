@@ -77,6 +77,10 @@ export class StationClient {
     private readonly url: string,
     logPath: string,
     seed: number,
+    /** Pretend address, sent as X-Forwarded-For (the server trusts it from localhost in tests, as from Caddy). */
+    readonly ip?: string,
+    /** Origin header, like a browser page would send. */
+    readonly origin?: string,
   ) {
     this.rng = seed >>> 0;
     this.logFile = createWriteStream(logPath, { flags: "a" });
@@ -98,10 +102,13 @@ export class StationClient {
 
   connect(): Promise<void> {
     return new Promise((resolve, reject) => {
-      const ws = new WebSocket(this.url);
+      const headers: Record<string, string> = {};
+      if (this.ip) headers["x-forwarded-for"] = this.ip;
+      const ws = new WebSocket(this.url, { headers, ...(this.origin ? { origin: this.origin } : {}) });
       this.ws = ws;
       ws.on("open", () => resolve());
       ws.on("error", (e) => reject(e));
+      ws.on("unexpected-response", (_req, res) => reject(new Error(`handshake refused: HTTP ${res.statusCode}`)));
       ws.on("message", (data) => this.receive(data.toString()));
       ws.on("close", (code) => {
         this.log("note", { text: "socket closed", code });

@@ -399,6 +399,23 @@ await runCase("C12", "The owner disappears", "The owner closes their tab. The ta
   return { pass: !before && playing, got: `controls before hand-over: ${before}; friend became owner and resumed with a bot: ${playing}` };
 });
 
+await runCase("C13", "HTML and script in player names", "Names are shown as plain text everywhere: no markup is rendered and no script runs.", async () => {
+  const owner = await newPlayer("owner");
+  const friend = await newPlayer("friend");
+  const link = await createTable(owner, '<i>it</i>&amp;"');
+  await joinByLink(friend, link, "<script>x()</script>");
+  await waitText(owner, "<script>x()</script>");
+  await addBots(owner, 2);
+  await friend.waitForSelector(".table-screen");
+  await autoplay(friend, 1500);
+  const literal = (await text(friend)).includes('<i>it</i>&amp;"') && (await text(owner)).includes("<script>x()</script>");
+  const injected = await friend.evaluate(() => document.querySelectorAll(".table-screen i, .table-screen script, .lobby i").length);
+  await shot(friend, "C13-names-as-text");
+  await owner.context().close();
+  await friend.context().close();
+  return { pass: literal && injected === 0, got: `names shown literally: ${literal}; markup elements created from names: ${injected}` };
+});
+
 await runCase("C9", "Server restarts in the middle of a game", "After a restart (every deploy is one) the players' pages reconnect by themselves, and the game carries on where it was: same contract, same cards.", async () => {
   const owner = await newPlayer("owner");
   const friend = await newPlayer("friend");

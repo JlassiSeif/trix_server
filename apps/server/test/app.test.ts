@@ -32,9 +32,19 @@ class Client {
   closeCode: number | null = null;
   private ws!: WebSocket;
   private waiters: (() => void)[] = [];
-  static async open(port: number) {
+  handshakeStatus: number | null = null;
+  static async open(port: number, opts: { ip?: string; origin?: string } = {}) {
     const c = new Client();
-    c.ws = new WebSocket(`ws://127.0.0.1:${port}/ws`);
+    c.ws = new WebSocket(`ws://127.0.0.1:${port}/ws`, { headers: opts.ip ? { "x-forwarded-for": opts.ip } : {}, ...(opts.origin ? { origin: opts.origin } : {}) });
+    let opened: () => void = () => undefined;
+    c.ws.on("unexpected-response", (req, res) => {
+      // The server refused the handshake (e.g. a foreign origin): no open, no close event follows.
+      c.handshakeStatus = res.statusCode ?? 0;
+      c.closeCode = -1;
+      req.destroy();
+      opened();
+      c.waiters.forEach((w) => w());
+    });
     c.ws.on("message", (d) => {
       c.inbox.push(JSON.parse(d.toString()));
       c.waiters.forEach((w) => w());
@@ -43,10 +53,11 @@ class Client {
       c.closeCode = code;
       c.waiters.forEach((w) => w());
     });
-    await new Promise((ok, fail) => {
-      c.ws.once("open", ok);
-      c.ws.once("error", fail);
-      c.ws.once("close", ok);
+    await new Promise<void>((ok) => {
+      opened = ok;
+      c.ws.once("open", () => ok());
+      c.ws.once("error", () => ok());
+      c.ws.once("close", () => ok());
     });
     return c;
   }
@@ -185,5 +196,50 @@ describe("limits", () => {
     await c.until(() => c.closeCode !== null);
     expect(c.closeCode).toBe(1008);
     expect(c.inbox.some((m) => m.type === "error" && m.code === "RATE_LIMITED")).toBe(true);
+  });
+});
+
+describe("security (see tools/station/src/security.ts for the full attack scenarios)", () => {
+  it("per-address connection cap, using the proxy's address only when told to trust it", async () => {
+    const app = await start({ trustProxy: true, maxSocketsPerIp: 3 });
+    const mine = await Promise.all([1, 2, 3, 4].map(() => Client.open(app.port, { ip: "203.0.113.5" })));
+    const other = await Client.open(app.port, { ip: "198.51.100.5" });
+    await mine[3]!.until(() => mine[3]!.closeCode !== null);
+    expect(mine[3]!.closeCode).toBe(1013);
+    expect(other.closeCode).toBeNull();
+    // Not behind a trusted proxy: a forged X-Forwarded-For changes nothing (everyone is 127.0.0.1 here).
+    const plain = await start({ maxSocketsPerIp: 2 });
+    const a = await Client.open(plain.port, { ip: "1.1.1.1" });
+    const b = await Client.open(plain.port, { ip: "2.2.2.2" });
+    const c = await Client.open(plain.port, { ip: "3.3.3.3" });
+    await c.until(() => c.closeCode !== null);
+    expect([a.closeCode, b.closeCode, c.closeCode]).toEqual([null, null, 1013]);
+  });
+
+  it("refuses game connections from other websites", async () => {
+    const app = await start({ allowedOrigins: ["https://trix.example"] });
+    const evil = await Client.open(app.port, { origin: "https://evil.example" });
+    await evil.until(() => evil.closeCode !== null);
+    expect(evil.handshakeStatus).toBe(401);
+    const ours = await Client.open(app.port, { origin: "https://trix.example" });
+    expect(ours.closeCode).toBeNull();
+  });
+
+  it("locks out an address after too many wrong links", async () => {
+    const app = await start({ trustProxy: true, maxJoinFailures: 3 });
+    const g = await Client.open(app.port, { ip: "203.0.113.9" });
+    for (let i = 0; i < 5; i++) g.send({ type: "joinRoom", roomId: "nothere", invite: "x", name: "x" });
+    await g.until(() => g.inbox.length >= 5);
+    expect(g.inbox.map((m) => (m as { code: string }).code)).toEqual(["ROOM_NOT_FOUND", "ROOM_NOT_FOUND", "ROOM_NOT_FOUND", "TOO_MANY_ATTEMPTS", "TOO_MANY_ATTEMPTS"]);
+  });
+
+  it("rejects odd HTTP: other methods, broken addresses, NUL bytes; stats only from the machine itself", async () => {
+    const app = await start({ trustProxy: true });
+    const base = `http://127.0.0.1:${app.port}`;
+    expect((await fetch(`${base}/`, { method: "POST" })).status).toBe(405);
+    expect((await fetch(`${base}/%E0%A4%A`)).status).toBe(400);
+    expect((await fetch(`${base}/index.html%00.png`)).status).toBe(400);
+    expect((await fetch(`${base}/api/stats`, { headers: { "x-forwarded-for": "203.0.113.1" } })).status).toBe(404);
+    expect((await fetch(`${base}/api/stats`)).status).toBe(200);
   });
 });

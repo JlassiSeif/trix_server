@@ -1,7 +1,7 @@
 // One table of 4 (RULES.md §7). Owns the seats, the game state and the timers; every game
 // move goes through the engine. Nothing here trusts the browser.
 
-import { randomBytes, randomInt } from "node:crypto";
+import { randomBytes, randomInt, timingSafeEqual } from "node:crypto";
 import {
   SEATS,
   applyAction,
@@ -20,6 +20,8 @@ import { log } from "./log";
 export interface Conn {
   send(msg: ServerMessage): void;
   close(): void;
+  /** The player's address (behind the proxy: the real client address). For per-address limits. */
+  ip?: string;
 }
 
 interface SeatState {
@@ -56,6 +58,11 @@ export const TIMING = {
 const ALPHABET = "abcdefghjkmnpqrstuvwxyz23456789";
 export const randomId = (n: number) => Array.from({ length: n }, () => ALPHABET[randomInt(ALPHABET.length)]).join("");
 const newToken = () => randomBytes(16).toString("hex");
+/** Constant-time comparison, so response timing reveals nothing about a seat token. */
+function sameToken(a: string | null, b: unknown): boolean {
+  if (!a || typeof b !== "string" || a.length !== b.length) return false;
+  return timingSafeEqual(Buffer.from(a), Buffer.from(b));
+}
 
 export function cleanName(raw: unknown): string | null {
   if (typeof raw !== "string") return null;
@@ -82,6 +89,8 @@ export class Room {
   continued = new Set<Seat>();
   ready = new Set<Seat>();
   lastActive = Date.now();
+  /** Address that created the room (not saved), for the per-address room limit. */
+  creatorIp: string | undefined;
   private botTimer: ReturnType<typeof setTimeout> | null = null;
   private ownerTimer: ReturnType<typeof setTimeout> | null = null;
   /** When each human seat lost its connection (not saved: after a restart everyone counts from then). */
@@ -182,6 +191,9 @@ export class Room {
     if (!name) throw new RoomError("BAD_NAME", "Pick a name (1 to 20 characters)");
     const creating = this.humans().length === 0 && this.seats.every((s) => s === null);
     if (!creating && invite !== this.invite) throw new RoomError("BAD_INVITE", "This invite link is no longer valid. Ask the room owner for the new one.");
+    // No two people with the same name at a table, so nobody can pass for someone else.
+    const taken = SEATS.some((s) => this.seats[s] && this.seats[s]!.name.toLowerCase() === name.toLowerCase());
+    if (taken) throw new RoomError("NAME_TAKEN", "Someone at this table already has that name. Pick another one.");
     // Free seat first; during a game a stand-in bot's seat can be taken over too.
     let seat = SEATS.find((s) => this.seats[s] === null);
     if (seat === undefined && this.game) seat = SEATS.find((s) => this.seats[s]?.vacant);
@@ -200,7 +212,7 @@ export class Room {
 
   /** A returning player reclaims their seat with their token (R-TABLE-5). */
   reconnect(conn: Conn, token: unknown): Seat {
-    const seat = SEATS.find((s) => typeof token === "string" && this.seats[s]?.token === token);
+    const seat = SEATS.find((s) => sameToken(this.seats[s]?.token ?? null, token));
     if (seat === undefined) throw new RoomError("BAD_TOKEN", "That seat is no longer yours");
     const st = this.seats[seat]!;
     log("info", "seat.reconnected", { room: this.id, seat, replacedOpenConnection: !!st.conn && st.conn !== conn, wasBotPlaying: st.botPlaying });

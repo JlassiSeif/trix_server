@@ -17,7 +17,29 @@ export class Hub {
   readonly rooms = new Map<string, Room>();
   private readonly roomOf = new Map<Conn, Room>();
 
-  constructor(private readonly options: { seed?: () => number; maxRooms?: number; onChange?: () => void } = {}) {}
+  /** Failed join attempts per address (wrong invite, token or room), to stop guessing. */
+  private failures = new Map<string, number[]>();
+
+  constructor(
+    private readonly options: {
+      seed?: () => number;
+      maxRooms?: number;
+      /** Tables one address may have open at once. */
+      maxRoomsPerIp?: number;
+      /** Wrong guesses allowed per address within `failureWindowMs`. */
+      maxJoinFailures?: number;
+      failureWindowMs?: number;
+      onChange?: () => void;
+    } = {},
+  ) {}
+
+  private recentFailures(ip: string, now = Date.now()): number[] {
+    const window = this.options.failureWindowMs ?? 10 * 60 * 1000;
+    const list = (this.failures.get(ip) ?? []).filter((t) => now - t < window);
+    if (list.length) this.failures.set(ip, list);
+    else this.failures.delete(ip);
+    return list;
+  }
 
   private roomHooks() {
     return { seed: this.options.seed, onChange: this.options.onChange, onClose: (r: Room) => this.rooms.delete(r.id) };
@@ -84,6 +106,7 @@ export class Hub {
 
   /** Drop rooms nobody has been connected to for a long time. */
   sweep(now = Date.now()): void {
+    for (const ip of [...this.failures.keys()]) this.recentFailures(ip, now);
     for (const room of this.rooms.values()) {
       const anyoneHere = room.seats.some((s) => s?.conn);
       if (!anyoneHere && now - room.lastActive > ROOM_IDLE_MS) room.close();
@@ -95,9 +118,15 @@ export class Hub {
     if (!cleanName(name)) throw new RoomError("BAD_NAME", "Pick a name (1 to 20 characters)");
     const previous = this.roomOf.get(conn);
     if (this.rooms.size >= (this.options.maxRooms ?? Infinity)) throw new RoomError("SERVER_FULL", "The server has too many tables right now. Try again later.");
+    const perIp = this.options.maxRoomsPerIp ?? Infinity;
+    if (conn.ip && [...this.rooms.values()].filter((r) => r.creatorIp === conn.ip).length >= perIp) {
+      log("warn", "room.tooManyFromAddress", { ip: conn.ip });
+      throw new RoomError("TOO_MANY_TABLES", "You already have several tables open. Close one first.");
+    }
     let id = randomId(6);
     while (this.rooms.has(id)) id = randomId(6);
     const room = new Room(id, this.roomHooks());
+    room.creatorIp = conn.ip;
     this.rooms.set(id, room);
     try {
       room.seatNewPlayer(conn, name, null);
@@ -110,6 +139,24 @@ export class Hub {
   }
 
   private join(conn: Conn, msg: { [k: string]: unknown }): void {
+    // Guessing invite codes, seat tokens or room ids gets an address locked out for a while.
+    const ip = conn.ip;
+    const max = this.options.maxJoinFailures ?? Infinity;
+    if (ip && this.recentFailures(ip).length >= max) throw new RoomError("TOO_MANY_ATTEMPTS", "Too many wrong links from your address. Wait a few minutes and try again.");
+    try {
+      this.joinChecked(conn, msg);
+    } catch (e) {
+      if (ip && e instanceof RoomError && ["ROOM_NOT_FOUND", "BAD_INVITE", "BAD_TOKEN"].includes(e.code)) {
+        const list = this.recentFailures(ip);
+        list.push(Date.now());
+        this.failures.set(ip, list);
+        if (list.length === max) log("warn", "join.lockedOut", { ip, failures: list.length });
+      }
+      throw e;
+    }
+  }
+
+  private joinChecked(conn: Conn, msg: { [k: string]: unknown }): void {
     const room = typeof msg.roomId === "string" ? this.rooms.get(msg.roomId) : undefined;
     if (!room) throw new RoomError("ROOM_NOT_FOUND", "This room does not exist (any more)");
     const previous = this.roomOf.get(conn);

@@ -23,7 +23,17 @@ export interface AppOptions {
   maxRooms?: number;
   maxSockets?: number;
   rate?: { perSecond: number; burst: number };
+  /** Behind a reverse proxy on this machine: take the client address from X-Forwarded-For. */
+  trustProxy?: boolean;
+  /** Pages allowed to open game connections (e.g. ["https://trix.example.com"]). Unset: any. */
+  allowedOrigins?: string[];
+  maxSocketsPerIp?: number;
+  maxRoomsPerIp?: number;
+  /** Wrong invite links / seat tokens / room ids allowed per address per 10 minutes. */
+  maxJoinFailures?: number;
 }
+
+const isLoopback = (a: string | undefined) => a === "127.0.0.1" || a === "::1" || a === "::ffff:127.0.0.1";
 
 export interface App {
   port: number;
@@ -66,7 +76,23 @@ export async function startApp(opts: AppOptions): Promise<App> {
   // Declared first: restoring rooms below already triggers a save.
   let closing = false;
   let saveTimer: ReturnType<typeof setTimeout> | null = null;
-  const hub = new Hub({ maxRooms: opts.maxRooms ?? 200, onChange: () => scheduleSave() });
+  const hub = new Hub({
+    maxRooms: opts.maxRooms ?? 200,
+    maxRoomsPerIp: opts.maxRoomsPerIp ?? 5,
+    maxJoinFailures: opts.maxJoinFailures ?? 20,
+    onChange: () => scheduleSave(),
+  });
+  const maxPerIp = opts.maxSocketsPerIp ?? 20;
+  const socketsPerIp = new Map<string, number>();
+
+  /** The real client address. X-Forwarded-For is only believed from a proxy on this machine,
+   *  and only its last entry (the one our proxy added; anything before it the client could forge). */
+  function clientIp(req: IncomingMessage): string {
+    const peer = req.socket.remoteAddress ?? "unknown";
+    const xff = req.headers["x-forwarded-for"];
+    if (opts.trustProxy && isLoopback(peer) && typeof xff === "string" && xff.trim()) return xff.split(",").at(-1)!.trim();
+    return peer;
+  }
 
   // ------------------------------------------------------------------ saved rooms
   if (opts.stateFile && existsSync(opts.stateFile)) {
@@ -103,7 +129,17 @@ export async function startApp(opts: AppOptions): Promise<App> {
 
   // ------------------------------------------------------------------ HTTP
   async function serveStatic(req: IncomingMessage, res: ServerResponse): Promise<void> {
-    const urlPath = decodeURIComponent(new URL(req.url ?? "/", "http://x").pathname);
+    let urlPath: string;
+    try {
+      urlPath = decodeURIComponent(new URL(req.url ?? "/", "http://x").pathname);
+    } catch {
+      res.writeHead(400, SECURITY_HEADERS).end();
+      return;
+    }
+    if (urlPath.includes("\0")) {
+      res.writeHead(400, SECURITY_HEADERS).end();
+      return;
+    }
     const filePath = resolve(webDist, "." + urlPath);
     if (filePath !== webDist && !filePath.startsWith(webDist + sep)) {
       res.writeHead(403, SECURITY_HEADERS).end();
@@ -123,13 +159,23 @@ export async function startApp(opts: AppOptions): Promise<App> {
     }
   }
 
-  const server: Server = createServer((req, res) => {
+  // Slow-request attacks: give up on clients that dribble their request in. Node only enforces
+  // these timeouts when it checks its connections, every 30 s by default: check every 2 s.
+  const server: Server = createServer({ headersTimeout: 10_000, requestTimeout: 15_000, connectionsCheckingInterval: 2_000 }, (req, res) => {
     if (req.url === "/api/health") {
       res.writeHead(200, { ...SECURITY_HEADERS, "content-type": "application/json", "cache-control": "no-store" }).end(JSON.stringify({ ok: true, engine: ENGINE_VERSION }));
       return;
     }
+    if (req.method !== "GET" && req.method !== "HEAD") {
+      res.writeHead(405, { ...SECURITY_HEADERS, allow: "GET, HEAD" }).end();
+      return;
+    }
     if (req.url === "/api/stats") {
-      // Counts only, nothing about players.
+      // Counts only, nothing about players, and only for someone on the machine itself.
+      if (!isLoopback(clientIp(req))) {
+        res.writeHead(404, SECURITY_HEADERS).end();
+        return;
+      }
       const m = process.memoryUsage();
       res
         .writeHead(200, { ...SECURITY_HEADERS, "content-type": "application/json", "cache-control": "no-store" })
@@ -143,7 +189,15 @@ export async function startApp(opts: AppOptions): Promise<App> {
   });
 
   // ------------------------------------------------------------------ WebSocket
-  const wss = new WebSocketServer({ server, path: "/ws", maxPayload: 4096 });
+  const wss = new WebSocketServer({
+    server,
+    path: "/ws",
+    maxPayload: 4096,
+    perMessageDeflate: false, // no compression: no decompression bombs
+    // Other websites can't open game connections from their visitors' browsers.
+    // (Non-browser clients send no Origin; they are subject to the same limits as everyone.)
+    verifyClient: ({ origin }: { origin?: string }) => !opts.allowedOrigins || !origin || opts.allowedOrigins.includes(origin),
+  });
   const alive = new WeakMap<WebSocket, boolean>();
 
   wss.on("connection", (socket, req) => {
@@ -152,8 +206,22 @@ export async function startApp(opts: AppOptions): Promise<App> {
       socket.close(1013, "server busy");
       return;
     }
-    log("debug", "ws.open", { ip: req.socket.remoteAddress });
+    const ip = clientIp(req);
+    const mine = (socketsPerIp.get(ip) ?? 0) + 1;
+    if (mine > maxPerIp) {
+      log("warn", "ws.tooManyFromAddress", { ip, sockets: mine - 1 });
+      socket.close(1013, "too many connections from your address");
+      return;
+    }
+    socketsPerIp.set(ip, mine);
+    socket.once("close", () => {
+      const n = (socketsPerIp.get(ip) ?? 1) - 1;
+      if (n <= 0) socketsPerIp.delete(ip);
+      else socketsPerIp.set(ip, n);
+    });
+    log("debug", "ws.open", { ip });
     const conn: Conn = {
+      ip,
       send: (msg: ServerMessage) => {
         if (socket.readyState === socket.OPEN) socket.send(JSON.stringify(msg));
       },
@@ -169,7 +237,7 @@ export async function startApp(opts: AppOptions): Promise<App> {
       if (cutOff) return;
       if (!limiter.take()) {
         cutOff = true;
-        log("warn", "ws.rateLimited", { ip: req.socket.remoteAddress, room: hub.roomIdOf(conn) });
+        log("warn", "ws.rateLimited", { ip, room: hub.roomIdOf(conn) });
         conn.send({ type: "error", code: "RATE_LIMITED", message: "Too many messages: disconnected" });
         socket.close(1008, "rate limited");
         return;

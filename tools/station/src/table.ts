@@ -15,6 +15,8 @@ export interface Ctx {
   registry: Table[];
   /** Restart the server the way a deploy does (only when the station runs its own server). */
   restartServer?: () => Promise<void>;
+  /** The server's log file (only when the station runs its own server). */
+  serverLog?: string;
 }
 
 export interface TableFinding {
@@ -25,9 +27,14 @@ export interface TableFinding {
 
 let clientSeq = 0;
 
-export function newClient(ctx: Ctx, name: string): StationClient {
+/** Every simulated player gets its own address unless a scenario says otherwise. */
+export function fakeIp(n: number): string {
+  return `10.${(n >> 16) & 255}.${(n >> 8) & 255}.${n & 255}`;
+}
+
+export function newClient(ctx: Ctx, name: string, opts: { ip?: string; origin?: string } = {}): StationClient {
   clientSeq++;
-  return new StationClient(name, ctx.wsUrl, join(ctx.dir, `${name}.jsonl`), ctx.seed * 1000 + clientSeq);
+  return new StationClient(name, ctx.wsUrl, join(ctx.dir, `${name}.jsonl`), ctx.seed * 1000 + clientSeq, opts.ip ?? fakeIp(clientSeq), opts.origin);
 }
 
 export class Table {

@@ -23,6 +23,8 @@ browser ──HTTPS/WSS──▶ Caddy (:443, automatic certificate) ──▶ n
 | `WEB_DIST` | `/opt/trix/apps/web/dist` | The built web app |
 | `TRIX_LOG_LEVEL` | `info` | `debug` logs every move; `info` logs joins, pauses, scores and errors |
 | `TRIX_MAX_ROOMS` | `200` (default) | Cap on tables |
+| `TRIX_TRUST_PROXY` | `1` | Caddy on the same machine forwards the real client address (needed for the per-address limits) |
+| `TRIX_ORIGINS` | `https://<domain>` | Only our own site may open game connections |
 
 `TRIX_SPEED` is for tests only. Never set it in production.
 
@@ -46,6 +48,13 @@ Only `apps/server/dist/index.js` and `apps/web/dist/` are needed to run.
 6. Open ports 80 and 443 in **both** places:
    - the Oracle VCN security list (ingress rules);
    - the machine's own firewall. Oracle's Ubuntu images block these by default in iptables.
+
+## Securing the machine (to confirm with Seif at deploy time)
+
+- **SSH:** keys only (`PasswordAuthentication no`), no root login.
+- **Firewall:** only 22, 80 and 443 open. Port 8080 stays closed to the outside; Trix only listens on 127.0.0.1.
+- **Automatic security updates:** `unattended-upgrades` on Ubuntu.
+- **Trix's own user:** Trix runs as its own user with no login shell, in a sandboxed service (see `deploy/trix.service`).
 
 ## Check it works
 

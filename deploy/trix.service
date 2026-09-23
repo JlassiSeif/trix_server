@@ -17,6 +17,10 @@ Environment=WEB_DIST=/opt/trix/apps/web/dist
 # Rooms survive restarts and deploys
 Environment=TRIX_STATE_FILE=/var/lib/trix/rooms.json
 Environment=TRIX_LOG_LEVEL=info
+# Caddy on this machine forwards the real client address (per-address limits need it)
+Environment=TRIX_TRUST_PROXY=1
+# Only pages from our own site may open game connections
+Environment=TRIX_ORIGINS=https://trix.example.com
 StateDirectory=trix
 Restart=on-failure
 RestartSec=2

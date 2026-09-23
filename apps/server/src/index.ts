@@ -4,6 +4,8 @@
 //   HOST              default 127.0.0.1 (behind a reverse proxy); 0.0.0.0 to listen on all interfaces
 //   TRIX_STATE_FILE   where rooms are saved, so a restart doesn't end games (recommended in production)
 //   TRIX_MAX_ROOMS    default 200
+//   TRIX_TRUST_PROXY  1 behind Caddy on the same machine: real client addresses from X-Forwarded-For
+//   TRIX_ORIGINS      comma-separated pages allowed to connect, e.g. https://trix.example.com
 //   TRIX_LOG_LEVEL    debug | info (default) | warn | error | silent
 //   WEB_DIST          the built web app (default apps/web/dist)
 //   TRIX_SPEED        tests only: bots and countdowns N times faster
@@ -27,6 +29,8 @@ const app = await startApp({
   webDist: process.env.WEB_DIST ?? fileURLToPath(new URL("../../web/dist", import.meta.url)),
   stateFile: process.env.TRIX_STATE_FILE || undefined,
   maxRooms: Number(process.env.TRIX_MAX_ROOMS ?? 200),
+  trustProxy: process.env.TRIX_TRUST_PROXY === "1",
+  allowedOrigins: process.env.TRIX_ORIGINS ? process.env.TRIX_ORIGINS.split(",").map((o) => o.trim()) : undefined,
 });
 log("info", "server.listening", { url: `http://${host}:${app.port}`, port: app.port, speed, stateFile: process.env.TRIX_STATE_FILE || null, rooms: app.hub.rooms.size });
 

@@ -1,6 +1,16 @@
-# DRAFT Caddy config. Replace trix.example.com with the real domain.
+# DRAFT Caddy config. Replace trix.example.com with the real domain (also in trix.service).
 # Caddy gets and renews the HTTPS certificate on its own, and passes WebSockets through.
 trix.example.com {
 	encode zstd gzip
+	header {
+		# Browsers only ever use HTTPS for this site from now on
+		Strict-Transport-Security "max-age=31536000"
+		# Don't advertise the server software
+		-Server
+	}
+	# Nothing in Trix takes a request body; refuse big ones at the door
+	request_body {
+		max_size 16KB
+	}
 	reverse_proxy 127.0.0.1:8080
 }
