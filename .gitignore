@@ -1,6 +1,10 @@
 # build output
-server/server
-client-sdl/prog
-client-sdl/myprogram
+archive/server-cpp/server
+archive/client-sdl/prog
 *.o
 a.out
+
+# node / TypeScript
+node_modules/
+dist/
+*.tsbuildinfo

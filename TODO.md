@@ -2,55 +2,57 @@
 
 We reconcile this file with the disk at the start of every session.
 Sources of truth: the disk, Seif, and this file. Anything not written here or confirmed by Seif is an open question, not a decision.
+The full plan behind the milestones below: `~/.claude/plans/shimmying-squishing-tarjan.md` (approved 2026-09-23).
 
 ## Goal
 Play Trix online with friends: a web app hosted on Seif's free Oracle Cloud machine, served from Seif's domain.
 
 ## Decisions (confirmed by Seif)
-- 2026-09-23: Layout is `server/`, `client-sdl/`, `archive/`, with one git repo at `~/trix` (keeps the server history).
-- 2026-09-23: `cards/` prototype archived to `archive/cards/`.
-- 2026-09-23: Heroku remote dropped. `.vscode/` folders dropped.
-- 2026-09-23: The old raw-TCP networking is to be dropped. The end product is a web app.
-- 2026-09-23: Order of work: **fix the game loop → fix the look → make it a web app → host on Oracle + domain.**
+- 2026-09-23: One git repo at `~/trix` (it keeps the old server's history). Heroku remote and `.vscode/` dropped.
+- 2026-09-23: Baseline committed as `7aab93e` (the code as found, before any fixes). Not pushed.
+- 2026-09-23: Stack is **TypeScript end to end**, with **React + Vite** for the web client. The old raw-TCP networking is dropped.
+- 2026-09-23: The old code is reference only and lives in `archive/`: `server-cpp/`, `client-sdl/`, `cards/` (the prototype).
+- 2026-09-23: First playable version: **one table for 4 friends**. Flow: a room with an invite link → pick a name → you're in.
+- 2026-09-23: The look needs a complete rework. The card images currently come from Aisleriot (GNOME Solitaire), which is fine for now. Later we need our own card designs.
+- 2026-09-23: **The rules walkthrough comes first.** No rule gets implemented unless it's in an approved `RULES.md`.
 
-## Now
-- [x] Smoke test (2026-09-23): server + 4 × `client-sdl/prog` locally, logs in the session scratchpad.
-  - Round 1 `dineri` played correctly. All 8 tricks were checked by hand: trick winners (with 10 > K), who leads next, and scores (0/20/50/10) are all correct.
-  - Round 2 collapsed: bochra's client exited at the contract picker (Seif closed the window on purpose, confirmed). The server then broadcast `game,` with an empty name, the other 3 clients segfaulted on it (`graphics.h:485` reads `p[1]` without checking it exists), and the server died without a message (most likely SIGPIPE).
-- [ ] Seif walks through the rules (see Open questions). Nothing rule-related gets fixed before this.
+## Milestones
+- [x] **M0 Housekeeping:** old code moved to `archive/`, `.gitignore` updated.
+- [ ] **M1 Rules walkthrough → `RULES.md`.** One topic at a time, and every rule gets an ID (`R-…`). Done when Seif approves it.
+  1. [ ] Deck and ranking
+  2. [ ] Seating, turn direction, dealing, who leads first
+  3. [ ] Contract structure, picker rotation, end of game, winner
+  4. [ ] Each contract: `ray`, `damet`, `dineri`, `pli`, `farcha`, `general` (early endings, scoring)
+  5. [ ] The `trix` contract
+  6. [ ] Legal plays (following suit and any other constraints)
+  7. [ ] Table flow: game start, disconnect, refresh, end of game
+  8. [ ] UI language and naming
+- [ ] **M1b Scaffold** (npm workspaces): `packages/engine`, `apps/server`, `apps/web`. `npm test` / `npm run build` / `npm run dev` all green.
+- [ ] **M2 Engine** (test-first against RULES.md): a pure state machine, seeded deal, per-seat views, a test for every rule ID, the golden dineri round, and a fuzz test.
+- [ ] **M3 Server + minimal web table:** room, invite link, name, seat, reconnect with the same seat, a WebSocket protocol where the server checks every move, and a plain UI.
+- [ ] **M4 Visual rework:** a `<Card>` component drawing from Aisleriot `bonded.svg` (GPL-3+: include the notice), a layout that works on phones, animations. Our own cards later.
+- [ ] **M5 Deploy:** Oracle machine, Node under systemd, Caddy for HTTPS, the domain.
 
-## Next: game loop (server, `server/src/logic.hpp`)
-Bugs found in the scan (2026-09-23), independent of the rules:
-- [ ] Cards each player has taken are never cleared between rounds, so every round re-scores earlier rounds (`logic.hpp:31`).
-- [ ] When `ray` ends early at K♥: the played cards aren't cleared and `end_of_pli` isn't sent. The next trick then uses stale cards, and K♥ is counted again (`logic.hpp:201-209`).
-- [ ] The server never tracks hands and never validates a played card (whether it's in the hand, whether it follows suit). Only the client enforces follow-suit.
-- [ ] Bad input or a disconnect crashes the server (`card_map.at()` throws; SIGPIPE on writing to a closed socket). **Confirmed in the smoke test:** one player leaving killed all 4 clients and the server. A disconnect must not end the game for everyone (how to handle it is a question for Seif).
-- [ ] A dead connection during the contract pick is taken as a pick of `""`, which is broadcast as `game,` (`logic.hpp:123-133`).
-- [ ] The `trix` contract isn't implemented (it's played as ordinary tricks and scores 0).
-- [ ] `general` never counts `farcha` (`"Farcha"` vs `"farcha"` case mismatch).
-- [ ] Scores never reach the clients. The winner is never announced. The process exits after one game.
-- [ ] Which contracts each player has already used is tracked only in the client (`available_games`), not in the server.
-- [ ] Messages have no delimiters. Timing relies on `sleep(500ms)`. (This goes away with the web rewrite.)
-- [ ] A failed `accept()` still adds the invalid connection to the player list (`final.cpp:60-75`).
+## Lessons from the old code: the new engine must get these right
+Found in the 2026-09-23 scan and smoke test of `archive/server-cpp` and `archive/client-sdl`. Each item becomes an engine or server test.
+- Cards each player has taken must be cleared between rounds (the old code re-scored earlier rounds: `logic.hpp:31`).
+- An early round ending (e.g. `ray` at K♥) must close out the trick cleanly. The old code left stale cards, counted K♥ twice, and left the clients stuck (`logic.hpp:201-209`).
+- The server owns every hand and checks every move (the old server trusted the client; only the client enforced follow-suit).
+- Bad input or a disconnect must never crash the server or other players. **Smoke test:** one closed window killed all 4 clients and the server.
+- A dead connection must never be read as a move (the old server broadcast an empty contract, `game,`: `logic.hpp:123-133`).
+- The `trix` contract must actually exist (the old code played it as ordinary tricks and scored 0).
+- Contract names need one definition shared everywhere (`"Farcha"` vs `"farcha"` broke `general`).
+- Scores and the winner must reach the players. The server must not exit after one game.
+- Which contracts have been used is tracked by the server (the old code tracked it only in the client, via `available_games`).
 
-Client-side issues (`client-sdl`) that matter only if the SDL client lives on:
-- [ ] Server address hardcoded to `127.0.0.1:8080`.
-- [ ] Assumes one network read equals one message. Crashes on unexpected input (`stoi`, `.at()`, and `played_kwaret[0..3]` in `end_of_pli`).
-- [ ] `makefile` builds a nonexistent `pl.cpp`. `run.sh` is the build that works. SDL2 dev headers aren't installed on this machine.
-
-## Later
-- [ ] Look / visual pass.
-- [ ] Web app (browser client + server network layer; drop the old socket code).
-- [ ] Hosting: Oracle Cloud free instance + domain (TLS, process supervision, deploy).
+Smoke test reference (2026-09-23), round 1 `dineri`: all 8 tricks were checked by hand. With 10 > K, the trick winners, who leads next, and the scores lam3i 0 / bochra 20 / ldhaw 50 / klafez 10 were all correct. This becomes a golden test once the rank order is confirmed.
+Hands dealt: lam3i `k_h;k_c;8_c;k_d;a_s;10_s;9_s;7_s` · bochra `q_h;j_c;7_c;a_d;q_d;9_d;k_s;j_s` · ldhaw `a_h;10_h;j_h;q_c;10_d;j_d;8_d;8_s` · klafez `9_h;8_h;7_h;a_c;10_c;9_c;7_d;q_s`.
+Tricks (leader first): K♦ Q♦ 10♦ 7♦ · 8♦ 9♥ K♥ A♦ · J♣ Q♣ 10♣ 8♣ · A♣ K♣ 7♣ 8♠ · 9♣ 10♠ 9♦ A♥ · 8♥ A♠ Q♥ 10♥ · J♥ 7♥ 9♠ K♠ · J♦ Q♠ 7♠ J♠.
 
 ## Open questions (for Seif)
-- Is "fix the look" for the SDL client, or only for the web client? (Polishing SDL may be wasted work if it's replaced.)
-- Rules walkthrough, to be answered one by one:
-  - Deck: 32 cards (7–A), 8 each? Rank order 7<8<9<J<Q<K<10<A? (The smoke test showed 10♦ beating K♦ and 10♣ beating Q♣, both per the code.)
-  - What should happen when a player disconnects mid-game (pause and wait for them to reconnect, a bot takes over, abandon the game)?
-  - The 7 contracts (`damet`, `ray`, `dineri`, `pli`, `farcha`, `trix`, `general`): what each one means, its scoring, and when a round ends early.
-  - Does each player pick each contract exactly once? In what order does the picker rotate? Who deals, and who leads the first trick?
-  - How is the `trix` contract played?
-  - What ends the game (currently any score > 5000)? Does the lowest or the highest score win?
-  - Seating and turn direction.
-  - Player names (the server hardcodes `lam3i, bochra, ldhaw, klafez`).
+- All of M1 (the rules). Points the old code raises:
+  - 32 cards, 8 each? Rank 7<8<9<J<Q<K<10<A (the code has 10 above K)?
+  - Scoring in the code: dineri 10/♦, damet 20/Q, ray 500 for K♥, pli 10/trick, farcha 500 for the last trick, general = the sum, game ends when a score passes 5000. Are these right?
+  - Player names: the old server hardcoded `lam3i, bochra, ldhaw, klafez`. The new flow lets players choose names.
+- What happens when a player disconnects mid-game (pause for reconnect, a bot, abandon)?
+- M5: Oracle machine shape (ARM A1 / AMD micro) and OS; the domain name.
