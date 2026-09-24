@@ -7,3 +7,4 @@ export * from "./scoring";
 export * from "./game";
 export * from "./view";
 export * from "./bot";
+export * from "./bots";
