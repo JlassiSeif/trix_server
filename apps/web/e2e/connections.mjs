@@ -267,7 +267,7 @@ await runCase("C4b", "A late friend opens the link while bots fill the table", "
   await late.waitForSelector(".table-screen", { timeout: 10_000 });
   const cards = (await handOf(late)).split(" ").filter(Boolean).length;
   const names = await owner.locator(".lb-name").allInnerTexts();
-  const bots = names.filter((n) => n.startsWith("Bot")).length;
+  const bots = names.filter((n) => / bot( \d)?$/i.test(n.trim())).length;
   for (const p of [owner, late]) await p.context().close();
   return { pass: cards > 0 && bots === 2 && names.some((n) => n.includes("Late")), got: `seated with ${cards} cards; table now has ${bots} bots and Late` };
 });
