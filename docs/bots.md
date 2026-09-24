@@ -23,34 +23,49 @@
 |---|---|---|---|
 | **Feels like** | a beginner who knows the rules | a decent club player | a strong, patient player |
 | **Memory** | only the current trick | every card played this contract | everything, and it works out who is out of which suit |
-| **Picking a contract** | whatever looks OK; sometimes random | the contract that costs this hand least | the contract where this hand is best compared with an average hand, planned around the 7 picks and the trix deadline |
+| **Picking a contract** | **random** among the contracts it may pick | **reads its hand:** the contract this hand is safest in | **reads its hand and plans:** the contract where this hand is best compared with an average hand, planned across all 7 picks, the trix deadline and the scores |
 | **Playing** | simple rules per trick; about 1 move in 4 is a random legal move | rules for each contract, using what's still out | imagines 40 possible deals of the hidden cards, plays each card forward, and picks the card that costs least on average |
 | **Declaring K♥** | never | when it can likely get rid of it (see §5) | when the simulations say declaring pays |
 | **Plays the scoreboard** | no | no | yes: avoids feeding the exact-1000 reset, pushes the leader when it helps (see §7) |
 | **Mistakes** | often | rarely | none on purpose |
 
-## 3. Picking a contract
+## 3. Picking a contract (reading the hand)
 
-Every level first estimates, for each contract it may pick, **how many points this hand is likely to take**.
+This is the first decision of every contract, made after seeing the hand (R-DECK-3), and it shapes the whole game. Today's placeholder bot ignores its cards and just goes down the list (dineri, damet, pli, …). All three levels replace that.
 
-| Contract | What makes a hand dangerous |
-|---|---|
-| dineri | many ♦, high ♦ (A, 10, K) without low ♦ to duck with |
-| damet | holding a Q without lower cards of its suit to duck with; A, 10, K in a suit where the Q is out |
-| pli | high cards (A, 10) and long suits of high cards; no voids |
-| farcha | no low cards left for the end; one long suit (whoever leads trick 8 often has to win it) |
-| ray | K♥ with few other hearts is the risk; A♥ or 10♥ with several hearts means taking the K♥ |
-| general | all of the above at once; a very low hand is the only safe one |
-| trix | good: jacks, aces (extra turns), runs next to a jack; bad: isolated 7s and aces far from the jacks you hold |
+**Easy: random.** A random contract among the ones it may pick. The rules still apply: trix needs a jack (R-GAME-4) and is due by the 6th pick (R-GAME-11).
 
-- **Easy:** picks the lowest-cost contract half the time, and a random legal one otherwise.
-- **Medium:** picks the lowest-cost contract, times 2 (the picker's multiplier). Two planning habits:
-  - it doesn't let general become its ×4 last pick: from the 5th pick on, general goes first unless the hand is terrible for it;
-  - it uses trix on a bad hand before the deadline (R-GAME-11) instead of waiting to be forced.
-- **Hard:** compares this hand with an average hand for each contract, and picks where it gains most relative to what it would expect later. Example: this hand is great for dineri *and* for pli, but most hands are fine for pli, so it spends dineri now. It also plans around:
-  - the ×4 on its last pick;
-  - the trix deadline;
-  - its score against 1000 (§7).
+**Medium: reads its hand.** For each contract it may pick, it estimates how many points this hand would take, and picks the lowest (its own score counts ×2 as picker). What makes a hand dangerous or safe:
+
+| Contract | Dangerous hand | Safe hand |
+|---|---|---|
+| dineri | many ♦, high ♦ (A, 10, K) without low ♦ to duck with; high cards elsewhere that win tricks others can dump ♦ on | few ♦, all low; voids to throw ♦ into |
+| damet | a Q without lower cards of its suit to duck with; A, 10, K in a suit whose Q is out | no queens, low cards, short suits |
+| pli | high cards (A, 10), long suits of high cards, no voids | low cards, especially 7s, 8s and 9s |
+| farcha | no low cards to keep for the end; one long suit (whoever leads trick 8 often has to win it) | a few low cards to keep for the last trick, high cards to spend early |
+| ray | K♥ with few other hearts and no escape suit; A♥ or 10♥ with several hearts (they take the K♥) | no K♥, no A♥ or 10♥, short hearts |
+| general | all of the above at once | only a very low hand is safe |
+| trix | isolated 7s and aces far from any jack; no aces | jacks, aces (extra turns), runs next to a jack |
+
+Two planning habits on top:
+- it doesn't let general become its ×4 last pick: from the 5th pick on, general goes first unless the hand is terrible for it;
+- it uses trix on a bad hand, before the deadline forces it (R-GAME-11).
+
+**Hard: reads its hand and plans.** It makes the same estimate as medium, but asks a better question: *how much better is this hand for each contract than an average hand would be?* It spends each contract where it gains most, because every contract has to be picked some time. Example: a hand safe for both dineri and pli, where most hands are fine for pli anyway, so it spends dineri now. It also plans around:
+- the ×4 on its last pick (it keeps a contract that is safe for most hands for the end);
+- the trix deadline;
+- its score against 1000 (§7).
+
+**A worked example.** Hand: A♠ 10♠ K♠ · 7♦ 8♦ · J♥ · 9♣ 7♣.
+- *pli:* bad. The three top spades will probably win three tricks.
+- *general:* bad for the same reason, with ♦ and queens on top.
+- *damet:* risky. No queens, but the spade winners can collect a Q♠ or a queen someone throws away.
+- *dineri:* fairly safe. Only 7♦ and 8♦, which almost never win a diamond trick. The risk is others throwing ♦ on its spade winners.
+- *farcha:* safe. It can spend the spades early and keep 7♣ or 7♦ for the last trick.
+- *ray:* moderate. No K♥ and a single heart, but someone void in spades could throw the K♥ on one of its spade winners.
+- *trix:* weak. One jack, and 7s far from it.
+
+So easy picks anything, medium picks farcha or dineri (whichever its estimate says is lower), and hard asks which of the two most hands are *worse* at. Most hands can plan a low card for farcha, fewer hands are this safe for dineri, so it takes dineri now and keeps farcha for later.
 
 ## 4. Playing tricks
 
@@ -120,6 +135,6 @@ No level ever teams up with a particular player; each bot plays for itself.
 
 1. **No cheating at any level (§1).** Recommended. The alternative would be a "hard" bot that peeks at hands, which is easy to build but unfair.
 2. **Stand-in bots at medium (§8).** Or should they use the level of the other bots at the table?
-3. **Easy's randomness: 1 move in 4 (§4).** Too dumb, or about right?
+3. **Easy's randomness: random picks (§3), and 1 random card in 4 (§4).** Too dumb, or about right?
 4. **Hard plays the scoreboard (§7).** Keep it, or have hard only minimise its own points?
 5. **Anything here that doesn't match how your group actually plays.** Especially the medium rules in §4. They're the base for hard too, so they matter most.

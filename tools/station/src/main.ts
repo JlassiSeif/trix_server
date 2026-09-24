@@ -31,6 +31,10 @@ process.env.STATION_SPEED = String(speed);
 
 const serverLog = createWriteStream(join(dir, "server.log"));
 let serverPort = 0;
+// Never leave a test server behind: when the station ends or is killed (Ctrl-C, a timeout), so does its server.
+const servers = new Set<ChildProcess>();
+process.on("exit", () => servers.forEach((p) => p.kill("SIGKILL")));
+for (const sig of ["SIGTERM", "SIGINT"] as const) process.on(sig, () => process.exit(130));
 async function startServer(): Promise<{ proc: ChildProcess | null; http: string }> {
   if (base) return { proc: null, http: base };
   const log = serverLog;
@@ -41,6 +45,8 @@ async function startServer(): Promise<{ proc: ChildProcess | null; http: string 
       TRIX_TRUST_PROXY: "1", TRIX_ORIGINS: "https://trix.test" },
     stdio: ["ignore", "pipe", "pipe"],
   });
+  servers.add(proc);
+  proc.on("exit", () => servers.delete(proc));
   proc.stderr!.on("data", (d: Buffer) => log.write(d));
   return new Promise((ok, fail) => {
     let buf = "";
