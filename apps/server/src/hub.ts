@@ -1,6 +1,7 @@
 // Routes each connection to its room. Parses and checks every incoming message; nothing a
 // browser sends can crash the server or reach another room.
 
+import { isBotLevel } from "@trix/engine";
 import type { ServerMessage } from "@trix/protocol";
 import { clip, log } from "./log";
 import { Room, RoomError, cleanName, randomId, type Conn, type RoomSnapshot } from "./room";
@@ -79,7 +80,7 @@ export class Hub {
     }
     const re = typeof msg.id === "number" ? msg.id : undefined;
     try {
-      if (msg.type === "createRoom") return this.create(conn, msg.name);
+      if (msg.type === "createRoom") return this.create(conn, msg.name, msg.bots);
       if (msg.type === "joinRoom") return this.join(conn, msg);
       const room = this.roomOf.get(conn);
       if (!room) return this.error(conn, "NOT_SEATED", "Join a room first", re);
@@ -113,9 +114,10 @@ export class Hub {
     }
   }
 
-  private create(conn: Conn, name: unknown): void {
+  private create(conn: Conn, name: unknown, bots: unknown): void {
     // Check first: a refused request must never pull the player out of the table they're at.
     if (!cleanName(name)) throw new RoomError("BAD_NAME", "Pick a name (1 to 20 characters)");
+    if (bots !== undefined && !isBotLevel(bots)) throw new RoomError("BAD_MESSAGE", "Unknown bot level");
     const previous = this.roomOf.get(conn);
     if (this.rooms.size >= (this.options.maxRooms ?? Infinity)) throw new RoomError("SERVER_FULL", "The server has too many tables right now. Try again later.");
     const perIp = this.options.maxRoomsPerIp ?? Infinity;
@@ -144,6 +146,8 @@ export class Hub {
     }
     previous?.disconnect(conn);
     this.roomOf.set(conn, room);
+    // "Play against bots" (R-TABLE-13): three bots of the chosen level, and the game starts.
+    if (bots !== undefined) room.fillWithBots(bots);
   }
 
   private join(conn: Conn, msg: { [k: string]: unknown }): void {

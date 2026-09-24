@@ -121,6 +121,22 @@ export const SCENARIOS: Scenario[] = [
     },
   },
   {
+    id: "S25",
+    title: "One player against an easy, a medium and a hard bot",
+    group: "normal flow",
+    expected: "A whole game against one bot of each level (docs/bots.md): every bot move passes the referee, the seats show each bot's level, and the game ends normally.",
+    async run(ctx) {
+      const t = await Table.create(ctx, "S25", { players: 1, bots: 3, levels: ["easy", "medium", "hard"] });
+      await t.untilFinished(GAME_MS);
+      const seats = t.clients[0]!.room!.seats.map((s) => s.level);
+      return {
+        got: `${summary(t)}; levels ${JSON.stringify(seats)}`,
+        checks: [agree(t), check(JSON.stringify(seats) === JSON.stringify([null, "easy", "medium", "hard"]), "the seats show each bot's level")],
+        tables: [t],
+      };
+    },
+  },
+  {
     id: "S05",
     title: "Nobody clicks Continue",
     group: "normal flow",

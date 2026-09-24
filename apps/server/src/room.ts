@@ -5,10 +5,14 @@ import { randomBytes, randomInt, timingSafeEqual } from "node:crypto";
 import {
   SEATS,
   applyAction,
+  botAction,
   createGame,
   placeholderBotAction,
   privateTo,
+  seededRng,
   viewFor,
+  type Action,
+  type BotLevel,
   type GameEvent,
   type GameState,
   type Seat,
@@ -34,6 +38,8 @@ interface SeatState {
   botPlaying: boolean;
   /** A bot holding a free seat: a new player coming through the invite link takes it over. */
   vacant: boolean;
+  /** Bots only: easy, medium or hard (docs/bots.md). */
+  level?: BotLevel;
 }
 
 export interface RoomSnapshot {
@@ -43,6 +49,8 @@ export interface RoomSnapshot {
   seats: (Omit<SeatState, "conn"> | null)[];
   game: GameState | null;
   lastActive: number;
+  /** Public events of the current contract: what the bots remember (docs/bots.md §1). */
+  contractEvents?: GameEvent[];
 }
 
 export const TIMING = {
@@ -58,11 +66,19 @@ export const TIMING = {
 const ALPHABET = "abcdefghjkmnpqrstuvwxyz23456789";
 export const randomId = (n: number) => Array.from({ length: n }, () => ALPHABET[randomInt(ALPHABET.length)]).join("");
 const newToken = () => randomBytes(16).toString("hex");
+/** Stand-in bots, and bots saved before levels existed, play at medium (docs/bots.md §8). */
+const STAND_IN_LEVEL: BotLevel = "medium";
+const LEVEL_NAME: Record<BotLevel, string> = { easy: "Easy bot", medium: "Medium bot", hard: "Hard bot" };
+/** Hard's thinking budget per move (docs/bots.md §1). */
+const THINK = { samples: 40, budgetMs: 30 };
+
 /** Constant-time comparison, so response timing reveals nothing about a seat token. */
 function sameToken(a: string | null, b: unknown): boolean {
   if (!a || typeof b !== "string" || a.length !== b.length) return false;
   return timingSafeEqual(Buffer.from(a), Buffer.from(b));
 }
+
+const isLevel = (v: unknown): v is BotLevel => v === "easy" || v === "medium" || v === "hard";
 
 export function cleanName(raw: unknown): string | null {
   if (typeof raw !== "string") return null;
@@ -96,6 +112,10 @@ export class Room {
   /** When each human seat lost its connection (not saved: after a restart everyone counts from then). */
   private awaySince = new Map<Seat, number>();
   private continueTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Public events since the current contract was dealt: the bots' memory. */
+  private contractEvents: GameEvent[] = [];
+  /** The bots' own randomness, separate from the deal. */
+  private botRng = seededRng(randomInt(2 ** 31));
   private closed = false;
   private frozen = false;
   private lastStatus: RoomStatus = "lobby";
@@ -119,9 +139,10 @@ export class Room {
       id: this.id,
       invite: this.invite,
       owner: this.owner,
-      seats: this.seats.map((st) => st && { kind: st.kind, name: st.name, token: st.token, botPlaying: st.botPlaying, vacant: st.vacant }),
+      seats: this.seats.map((st) => st && { kind: st.kind, name: st.name, token: st.token, botPlaying: st.botPlaying, vacant: st.vacant, ...(st.level ? { level: st.level } : {}) }),
       game: this.game,
       lastActive: this.lastActive,
+      contractEvents: this.contractEvents,
     };
   }
 
@@ -129,8 +150,9 @@ export class Room {
     const room = new Room(snap.id, hooks, true);
     room.invite = snap.invite;
     room.owner = snap.owner;
-    room.seats = snap.seats.map((st) => st && { ...st, conn: null });
+    room.seats = snap.seats.map((st) => st && { ...st, conn: null, ...(st.kind === "bot" && !st.level ? { level: STAND_IN_LEVEL } : {}) });
     room.game = snap.game;
+    room.contractEvents = snap.contractEvents ?? [];
     room.lastActive = snap.lastActive;
     room.lastStatus = room.status;
     const now = Date.now();
@@ -361,9 +383,9 @@ export class Room {
         const s = targetSeat();
         if (this.game) throw new RoomError("NOT_IN_LOBBY", "Bots can be added before the game starts");
         if (this.seats[s]) throw new RoomError("SEAT_TAKEN", "That seat is taken");
-        const botNo = SEATS.filter((i) => this.seats[i]?.kind === "bot").length + 1;
-        this.seats[s] = { kind: "bot", name: `Bot ${botNo}`, token: null, conn: null, botPlaying: false, vacant: true };
-        log("info", "seat.botAdded", { room: this.id, seat: s });
+        const level = msg.level === undefined ? STAND_IN_LEVEL : msg.level;
+        if (!isLevel(level)) throw new RoomError("BAD_MESSAGE", "Unknown bot level");
+        this.seatBot(s, level);
         this.changed([]);
         this.startIfFull();
         return;
@@ -390,7 +412,7 @@ export class Room {
         for (const s of this.waitingFor()) {
           const st = this.seats[s];
           if (st) st.botPlaying = true;
-          else this.seats[s] = { kind: "bot", name: "Bot", token: null, conn: null, botPlaying: false, vacant: true };
+          else this.seatBot(s, STAND_IN_LEVEL);
           log("info", "seat.botStandIn", { room: this.id, seat: s, forPlayer: st?.name ?? null });
         }
         this.changed([]);
@@ -410,6 +432,22 @@ export class Room {
       default:
         throw new RoomError("BAD_MESSAGE", "Unknown message");
     }
+  }
+
+  /** "Play against bots" (R-TABLE-13): every empty seat gets a bot of this level, and the game starts. */
+  fillWithBots(level: BotLevel): void {
+    for (const s of SEATS) if (!this.seats[s]) this.seatBot(s, level);
+    this.changed([]);
+    this.startIfFull();
+  }
+
+  /** A bot in an empty seat, named after its level ("Hard bot", "Hard bot 2", …). */
+  private seatBot(seat: Seat, level: BotLevel): void {
+    const taken = (n: string) => SEATS.some((i) => this.seats[i]?.name.toLowerCase() === n.toLowerCase());
+    let name = LEVEL_NAME[level];
+    for (let n = 2; taken(name); n++) name = `${LEVEL_NAME[level]} ${n}`;
+    this.seats[seat] = { kind: "bot", name, token: null, conn: null, botPlaying: false, vacant: true, level };
+    log("info", "seat.botAdded", { room: this.id, seat, level });
   }
 
   // -------------------------------------------------------------------------
@@ -459,6 +497,8 @@ export class Room {
     if (this.game?.phase === "contractEnd" && this.continueAt === null) this.continueAt = Date.now() + TIMING.continueMs;
     this.checkOwner(); // before telling anyone, so everyone sees the current owner
     for (const e of events) {
+      if (e.type === "dealt") this.contractEvents = [];
+      else if (privateTo(e) === null) this.contractEvents.push(e);
       if (e.type === "contractScored") {
         const r = e.result;
         log("info", "contract.scored", { room: this.id, contractNo: r.contractNo, contract: r.contract, picker: r.picker, raw: r.raw, scores: r.scores, totals: r.totals, resets: r.resetToZero });
@@ -500,15 +540,25 @@ export class Room {
 
   private botMove(seat: Seat): void {
     if (!this.game || this.status !== "playing" || this.game.turn !== seat || !this.isBotControlled(seat)) return;
-    const action = placeholderBotAction(this.game, seat);
-    if (!action) return;
-    const r = applyAction(this.game, seat, action);
-    if (!r.ok) {
-      // Cannot happen: the bot only picks legal actions (R-BOT-1). Logged loudly if it ever does.
-      log("error", "bot.illegalMove", { room: this.id, seat, action, code: r.error.code });
-      return;
+    const st = this.seats[seat]!;
+    const level = st.kind === "bot" ? (st.level ?? STAND_IN_LEVEL) : STAND_IN_LEVEL;
+    // The bot sees what a player in its seat sees: its view and the public events (docs/bots.md §1).
+    let action: Action | null = null;
+    try {
+      action = botAction(level, viewFor(this.game, seat), this.contractEvents, this.botRng, THINK);
+    } catch (e) {
+      log("error", "bot.crashed", { room: this.id, seat, level, error: e });
     }
-    log("debug", "bot.move", { room: this.id, seat, action });
+    let r = action ? applyAction(this.game, seat, action) : null;
+    if (!r?.ok) {
+      // Never let a bot problem stall the table: log it and make a simple legal move instead.
+      if (r && !r.ok) log("error", "bot.illegalMove", { room: this.id, seat, level, action, code: r.error.code });
+      action = placeholderBotAction(this.game, seat);
+      if (!action) return;
+      r = applyAction(this.game, seat, action);
+      if (!r.ok) return;
+    }
+    log("debug", "bot.move", { room: this.id, seat, level, action });
     this.game = r.state;
     this.changed(r.events);
   }
@@ -530,8 +580,8 @@ export class Room {
       owner: this.owner,
       seats: SEATS.map((s) => {
         const st = this.seats[s];
-        if (!st) return { kind: "empty", name: null, connected: false, botPlaying: false };
-        return { kind: st.kind, name: st.name, connected: st.kind === "bot" || !!st.conn, botPlaying: st.botPlaying };
+        if (!st) return { kind: "empty", name: null, connected: false, botPlaying: false, level: null };
+        return { kind: st.kind, name: st.name, connected: st.kind === "bot" || !!st.conn, botPlaying: st.botPlaying, level: st.kind === "bot" ? (st.level ?? STAND_IN_LEVEL) : null };
       }),
       invitePath: seat === this.owner ? `/r/${this.id}?i=${this.invite}` : null,
       waitingFor: this.waitingFor(),

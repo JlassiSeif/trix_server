@@ -2,14 +2,15 @@
 // The server is the only authority: the browser sends what the player wants to do,
 // the server checks it with the engine and sends every player their own view.
 
-import type { Action, GameEvent, PlayerView, Seat } from "@trix/engine";
+import type { Action, BotLevel, GameEvent, PlayerView, Seat } from "@trix/engine";
 
 /** Any message may carry an `id`; an error caused by it echoes that id as `re`. */
 export type ClientMessage = ClientRequest & { id?: number };
 
 export type ClientRequest =
-  /** Create a room and take seat 0 as its owner (R-TABLE-2). */
-  | { type: "createRoom"; name: string }
+  /** Create a room and take seat 0 as its owner (R-TABLE-2). With `bots`, the other three seats
+   *  get bots of that level and the game starts at once ("Play against bots", R-TABLE-13). */
+  | { type: "createRoom"; name: string; bots?: BotLevel }
   /** Join with an invite (new player) or a seat token (returning player, R-TABLE-5). */
   | { type: "joinRoom"; roomId: string; invite?: string; token?: string; name?: string }
   /** A game move, checked by the engine. */
@@ -20,7 +21,8 @@ export type ClientRequest =
   | { type: "ready" }
   | { type: "leave" }
   // Room owner only
-  | { type: "addBot"; seat: Seat }
+  /** A bot at the chosen level (default medium, docs/bots.md). */
+  | { type: "addBot"; seat: Seat; level?: BotLevel }
   | { type: "kick"; seat: Seat }
   /** Hand ownership to another connected player (R-TABLE-12). */
   | { type: "makeOwner"; seat: Seat }
@@ -37,6 +39,8 @@ export interface SeatInfo {
   connected: boolean;
   /** A bot is playing this seat for someone who is away (R-TABLE-7). */
   botPlaying: boolean;
+  /** Bots only: how well it plays. */
+  level: BotLevel | null;
 }
 
 export interface RoomView {

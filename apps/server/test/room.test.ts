@@ -91,7 +91,87 @@ describe("starting (R-TABLE-3)", () => {
     send(owner, { type: "addBot", seat: 3 });
     expect(room.status).toBe("playing");
     expect(owner.last("update").game!.hand).toHaveLength(8);
-    expect(owner.last("update").room.seats.map((s) => s.name)).toEqual(["Seif", "Ali", "Bot 1", "Bot 2"]);
+    expect(owner.last("update").room.seats.map((s) => s.name)).toEqual(["Seif", "Ali", "Medium bot", "Medium bot 2"]);
+  });
+});
+
+describe("bot levels (docs/bots.md §8)", () => {
+  it("the owner picks each bot's level; bots are named after it; everyone sees the levels", () => {
+    const { owner, room } = createRoom();
+    send(owner, { type: "addBot", seat: 1, level: "hard" });
+    send(owner, { type: "addBot", seat: 2, level: "easy" });
+    send(owner, { type: "addBot", seat: 3, level: "hard" });
+    const seats = owner.last("update").room.seats;
+    expect(seats.map((s) => s.name)).toEqual(["Seif", "Hard bot", "Easy bot", "Hard bot 2"]);
+    expect(seats.map((s) => s.level)).toEqual([null, "hard", "easy", "hard"]);
+    expect(room.status).toBe("playing");
+  });
+
+  it("refuses an unknown level", () => {
+    const { owner, room } = createRoom();
+    send(owner, { type: "addBot", seat: 1, level: "godlike" });
+    expect(owner.errors()).toEqual(["BAD_MESSAGE"]);
+    expect(room.seats[1]).toBeNull();
+  });
+
+  it("R-TABLE-13: Play against bots: three bots of the chosen level, and the game starts at once", () => {
+    const me = new FakeConn();
+    send(me, { type: "createRoom", name: "Seif", bots: "hard" });
+    const room = hub.rooms.get(me.last("joined").roomId)!;
+    expect(me.last("joined").seat).toBe(0);
+    expect(room.status).toBe("playing");
+    expect(me.last("update").room.seats.map((s) => [s.name, s.level])).toEqual([
+      ["Seif", null],
+      ["Hard bot", "hard"],
+      ["Hard bot 2", "hard"],
+      ["Hard bot 3", "hard"],
+    ]);
+    // The invite link still works: a friend takes over a bot's seat (R-TABLE-10).
+    const friend = new FakeConn();
+    send(friend, { type: "joinRoom", roomId: room.id, invite: invite(me), name: "Ali" });
+    expect(friend.last("joined")).toBeTruthy();
+  });
+
+  it("refuses an unknown level for Play against bots, and creates nothing", () => {
+    const me = new FakeConn();
+    send(me, { type: "createRoom", name: "Seif", bots: "godlike" });
+    expect(me.errors()).toEqual(["BAD_MESSAGE"]);
+    expect(hub.rooms.size).toBe(0);
+  });
+
+  it("plays a whole game against three hard bots", { timeout: 60_000 }, () => {
+    const me = new FakeConn();
+    send(me, { type: "createRoom", name: "Seif", bots: "hard" });
+    const room = hub.rooms.get(me.last("joined").roomId)!;
+    for (let i = 0; i < 20000 && room.status !== "finished"; i++) {
+      playHuman(me, room, 0);
+      vi.advanceTimersByTime(500);
+    }
+    expect(room.status).toBe("finished");
+    expect(me.errors()).toEqual([]);
+  });
+
+  it("keeps levels and the bots' memory across a restart; older saves get medium bots", () => {
+    const { owner, room } = createRoom();
+    for (const s of [1, 2, 3]) send(owner, { type: "addBot", seat: s, level: "easy" });
+    for (let i = 0; i < 40; i++) {
+      playHuman(owner, room, 0);
+      vi.advanceTimersByTime(500);
+    }
+    const snap = JSON.parse(JSON.stringify(hub.snapshot()));
+    const saved = snap.rooms[0];
+    expect(saved.seats[1].level).toBe("easy");
+    expect(saved.contractEvents.length).toBeGreaterThan(0);
+    const restored = new Hub({ seed: () => 1 });
+    restored.restore(snap);
+    expect(restored.rooms.get(room.id)!.viewFor(0).seats[1]!.level).toBe("easy");
+    delete saved.seats[1].level;
+    delete saved.contractEvents;
+    const old = new Hub({ seed: () => 1 });
+    old.restore(snap);
+    expect(old.rooms.get(room.id)!.viewFor(0).seats[1]!.level).toBe("medium");
+    restored.stopTimers();
+    old.stopTimers();
   });
 });
 

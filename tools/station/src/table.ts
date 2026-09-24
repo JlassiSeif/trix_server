@@ -37,6 +37,8 @@ export function newClient(ctx: Ctx, name: string, opts: { ip?: string; origin?: 
   return new StationClient(name, ctx.wsUrl, join(ctx.dir, `${name}.jsonl`), ctx.seed * 1000 + clientSeq, opts.ip ?? fakeIp(clientSeq), opts.origin);
 }
 
+let botsAdded = 0;
+
 export class Table {
   findings: TableFinding[] = [];
   /** Cross-player comparison only holds while all 4 have been connected throughout. */
@@ -57,7 +59,7 @@ export class Table {
     return this.clients.filter((c) => !c.removed);
   }
 
-  static async create(ctx: Ctx, label: string, opts: { players?: number; bots?: number; policy?: Policy | null } = {}): Promise<Table> {
+  static async create(ctx: Ctx, label: string, opts: { players?: number; bots?: number; policy?: Policy | null; levels?: ("easy" | "medium" | "hard")[] } = {}): Promise<Table> {
     const players = opts.players ?? 4;
     const bots = opts.bots ?? 4 - players;
     const policy = opts.policy === undefined ? NORMAL : opts.policy;
@@ -81,7 +83,9 @@ export class Table {
     await owner.waitFor(() => owner.room!.seats.filter((s) => s.kind === "human").length === players, 5000, "all players seated");
     for (let i = 0; i < bots; i++) {
       const empty = owner.room!.seats.findIndex((s) => s.kind === "empty");
-      owner.send({ type: "addBot", seat: empty });
+      // Every level takes part, so the referee checks all of them (docs/bots.md §9): the levels
+      // rotate across the whole run, not per table, since most tables have only one or two bots.
+      owner.send({ type: "addBot", seat: empty, level: opts.levels?.[i] ?? (["hard", "medium", "easy"] as const)[botsAdded++ % 3] });
       await owner.waitFor(() => owner.room!.seats[empty]!.kind === "bot", 5000, "bot added");
     }
     return table;
