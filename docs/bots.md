@@ -1,6 +1,6 @@
 # Bots: how they behave (spec)
 
-**Status: DRAFT for Seif to edit and approve.** No bot behaviour gets built until it's approved here. Once it is, the placeholder bot (R-BOT-2) is replaced and RULES.md gets a dated note.
+**Status: APPROVED by Seif, 2026-09-24**, including section 3 (picking) and the five decisions at the end as written. When the bots are built, the placeholder bot (R-BOT-2) is replaced and RULES.md gets a dated note. Changes after this need Seif's OK.
 
 **Goal:** someone can play a whole game alone against 3 bots, at one of three levels: **easy**, **medium**, **hard**. Bots can also fill seats at a table of friends, as they do today.
 
@@ -131,7 +131,7 @@ No level ever teams up with a particular player; each bot plays for itself.
 4. **The station** keeps running every scenario with bots at the table, and its referee checks every bot move.
 5. **Seif plays** a game at each level and says whether it feels right.
 
-## Decisions for Seif
+## Decisions (approved 2026-09-24 as written)
 
 1. **No cheating at any level (§1).** Recommended. The alternative would be a "hard" bot that peeks at hands, which is easy to build but unfair.
 2. **Stand-in bots at medium (§8).** Or should they use the level of the other bots at the table?

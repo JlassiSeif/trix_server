@@ -8,7 +8,7 @@ Play Trix online with friends: a web app hosted on Seif's free Oracle Cloud mach
 
 ## Open
 1. **Push to GitHub:** blocked. This machine's key logs in as `Seifeddine-Jlassi`, which has no access to `JlassiSeif/trix_server`. Seif to choose: add a collaborator, add the key, or use a new repo.
-2. **Bots with 3 levels (easy, medium, hard) and a "Play against bots" mode:** the spec draft is in `docs/bots.md`, waiting for Seif's edits and approval. Nothing gets built before that.
+2. **Bots with 3 levels (easy, medium, hard) and a "Play against bots" mode:** spec `docs/bots.md` approved by Seif 2026-09-24. Next: build and verify in the arena.
 3. **Deploy the trix deadline (R-GAME-11) and the phone layout:** built and tested, not yet live. Seif decides when.
 4. **To confirm (not blocking).** These are Claude's design calls, in use since v0.5, which Seif played. RULES.md still marks them "Seif to confirm":
    - R-TABLE-10: the owner adds bots in the lobby, and a friend who joins later takes over a bot's seat.
