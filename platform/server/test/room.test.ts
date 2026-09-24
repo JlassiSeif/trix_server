@@ -1,14 +1,20 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { placeholderBotAction, type Seat } from "@games/trix";
-import type { ServerMessage } from "@platform/protocol";
+import { placeholderBotAction, type GameEvent, type GameState, type PlayerView, type Seat } from "@games/trix";
+import type { ServerMessage as AnyMessage } from "@platform/protocol";
+
+/** These platform tests play Trix, so its views and events are typed as Trix's. */
+type ServerMessage = AnyMessage<PlayerView, GameEvent>;
 import { Hub } from "../src/hub";
-import type { Conn } from "../src/room";
+import type { Conn, Room } from "../src/room";
+
+/** The room keeps the game's state opaque; here it is Trix's. */
+const trix = (room: Room) => room.game as GameState;
 
 class FakeConn implements Conn {
   inbox: ServerMessage[] = [];
   closed = false;
-  send(msg: ServerMessage) {
-    this.inbox.push(structuredClone(msg));
+  send(msg: AnyMessage) {
+    this.inbox.push(structuredClone(msg) as ServerMessage);
   }
   close() {
     this.closed = true;
@@ -41,7 +47,7 @@ function invite(owner: FakeConn) {
 
 /** Plays the human seat with the bot's logic, and clicks Continue between contracts. */
 function playHuman(conn: FakeConn, room: ReturnType<typeof createRoom>["room"], seat: Seat) {
-  const g = room.game!;
+  const g = trix(room);
   if (g.phase === "contractEnd" && !room.continued.has(seat)) return send(conn, { type: "continue" });
   if (g.turn === seat && room.status === "playing") send(conn, { type: "action", action: placeholderBotAction(g, seat) });
 }
@@ -161,15 +167,25 @@ describe("bot levels (docs/bots.md §8)", () => {
     const snap = JSON.parse(JSON.stringify(hub.snapshot()));
     const saved = snap.rooms[0];
     expect(saved.seats[1].level).toBe("easy");
-    expect(saved.contractEvents.length).toBeGreaterThan(0);
+    expect(saved.gameId).toBe("trix");
+    expect(saved.roundEvents.length).toBeGreaterThan(0);
     const restored = new Hub({ seed: () => 1 });
     restored.restore(snap);
     expect(restored.rooms.get(room.id)!.viewFor(0).seats[1]!.level).toBe("easy");
+    // A save from before the hub: no game id, the state under "game", bots without levels.
     delete saved.seats[1].level;
-    delete saved.contractEvents;
+    delete saved.gameId;
+    delete saved.gameVersion;
+    saved.game = saved.state;
+    delete saved.state;
+    saved.contractEvents = saved.roundEvents;
+    delete saved.roundEvents;
     const old = new Hub({ seed: () => 1 });
     old.restore(snap);
-    expect(old.rooms.get(room.id)!.viewFor(0).seats[1]!.level).toBe("medium");
+    const oldRoom = old.rooms.get(room.id)!;
+    expect(oldRoom.viewFor(0).seats[1]!.level).toBe("medium");
+    expect(oldRoom.viewFor(0).game).toBe("trix");
+    expect((oldRoom.game as GameState).contractNo).toBe(trix(room).contractNo);
     restored.stopTimers();
     old.stopTimers();
   });
@@ -198,21 +214,21 @@ describe("a full game with one human and three bots", () => {
   it("waits for the human to continue between contracts, or deals after the countdown", () => {
     const { owner, room } = createRoom();
     for (const s of [1, 2, 3]) send(owner, { type: "addBot", seat: s });
-    while (room.game!.phase !== "contractEnd") {
+    while (trix(room).phase !== "contractEnd") {
       playHuman(owner, room, 0);
       vi.advanceTimersByTime(500);
     }
     expect(owner.last("update").room.continueAt).toBeGreaterThan(Date.now());
     vi.advanceTimersByTime(9000);
-    expect(room.game!.contractNo).toBe(1);
+    expect(trix(room).contractNo).toBe(1);
     vi.advanceTimersByTime(1100);
-    expect(room.game!.contractNo).toBe(2);
+    expect(trix(room).contractNo).toBe(2);
   });
 
   it("R-TABLE-8: after the game, all Ready starts a new one with the same seats", () => {
     const { owner, room } = createRoom();
     for (const s of [1, 2, 3]) send(owner, { type: "addBot", seat: s });
-    room.game!.totals = [1001, 1001, 1001, 1001]; // the first contract ends the game
+    trix(room).totals = [1001, 1001, 1001, 1001]; // the first contract ends the game
     for (let i = 0; i < 5000 && room.status !== "finished"; i++) {
       playHuman(owner, room, 0);
       vi.advanceTimersByTime(500);
@@ -220,8 +236,8 @@ describe("a full game with one human and three bots", () => {
     expect(room.status).toBe("finished");
     send(owner, { type: "ready" });
     expect(room.status).toBe("playing");
-    expect(room.game!.contractNo).toBe(1);
-    expect(room.game!.totals).toEqual([0, 0, 0, 0]);
+    expect(trix(room).contractNo).toBe(1);
+    expect(trix(room).totals).toEqual([0, 0, 0, 0]);
   });
 });
 
@@ -230,7 +246,7 @@ describe("moves are checked by the engine", () => {
     const { owner, room } = createRoom();
     for (const s of [1, 2, 3]) send(owner, { type: "addBot", seat: s });
     const before = JSON.stringify(room.game);
-    const notMine = room.game!.picker === 0 ? { type: "play", card: "7_h" } : { type: "pick", contract: "dineri" };
+    const notMine = trix(room).picker === 0 ? { type: "play", card: "7_h" } : { type: "pick", contract: "dineri" };
     send(owner, { type: "action", action: notMine });
     send(owner, { type: "action", action: { type: "pick", contract: "belote" } });
     send(owner, { type: "action", action: "garbage" });
@@ -245,9 +261,9 @@ describe("moves are checked by the engine", () => {
     for (const s of [2, 3]) send(owner, { type: "addBot", seat: s });
     const humans: [FakeConn, Seat][] = [[owner, 0], [guest, 1]];
     // Force a trick contract and play until one trick is done.
-    while (!room.game!.lastTrick) {
+    while (!trix(room).lastTrick) {
       for (const [c, s] of humans) {
-        const g = room.game!;
+        const g = trix(room);
         if (g.phase === "picking" && g.picker === s) send(c, { type: "action", action: { type: "pick", contract: "pli" } });
         else playHuman(c, room, s);
       }
@@ -367,7 +383,7 @@ describe("found by the testing station (2026-09-23)", () => {
     expect(room.status).toBe("playing");
     expect(room.seatOf(owner)).toBe(0);
     // And a seated player can still act.
-    const g = room.game!;
+    const g = trix(room);
     if (g.turn === 0) send(owner, { type: "action", action: placeholderBotAction(g, 0) });
     expect(owner.errors()).toHaveLength(3);
   });

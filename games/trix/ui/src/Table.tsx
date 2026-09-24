@@ -12,9 +12,13 @@ import {
   type Seat,
 } from "@games/trix";
 import type { RoomView } from "@platform/protocol";
-import type { Connection } from "../net";
-import { Card, ContractIcon, InviteLink, LeaveButton, useTick } from "../components/bits";
-import { CONTRACT_ORDER, CONTRACT_RULE, cardLabel, describe, multiplierLabel, ordinal } from "../text";
+import { InviteLink, LeaveButton, useTick, type Connection } from "@platform/ui";
+import { Card, ContractIcon } from "./cards";
+import { CONTRACT_ORDER, CONTRACT_RULE, cardLabel, describe, multiplierLabel, ordinal } from "./text";
+import "./trix.css";
+
+/** The connection with Trix's views and events. */
+type TrixConn = Connection<PlayerView, GameEvent>;
 
 /** Where a seat sits on your screen: you at the bottom, then counter-clockwise (R-SEAT-1). */
 const POSITIONS = ["bottom", "right", "top", "left"] as const;
@@ -37,10 +41,12 @@ interface Toast {
 const LINGER_MS = 1600;
 const SHORT: Record<Contract, string> = { dineri: "DIN", damet: "DAM", pli: "PLI", farcha: "FAR", ray: "RAY", general: "GEN", trix: "TRX" };
 
-export function Table({ conn }: { conn: Connection }) {
+export function Table({ conn: anyConn }: { conn: Connection }) {
+  const conn = anyConn as TrixConn;
   const room = conn.room!;
   const game = conn.game!;
-  const me = room.you;
+  // A Trix room has 4 seats, so the room's seat numbers are Trix seats.
+  const me = room.you as Seat;
   const pos = (s: Seat): Position => POSITIONS[(s - me + 4) % 4]!;
   const name = (s: Seat) => room.seats[s]?.name ?? `Seat ${s + 1}`;
 
@@ -61,7 +67,7 @@ export function Table({ conn }: { conn: Connection }) {
     const later = (fn: () => void, ms: number) => timers.push(setTimeout(fn, ms));
     const off = onEvents((events: GameEvent[], r: RoomView) => {
       const nameNow = (s: Seat) => r.seats[s]?.name ?? `Seat ${s + 1}`;
-      const lines = events.map((e) => describe(e, nameNow, r.you)).filter((t): t is string => t !== null);
+      const lines = events.map((e) => describe(e, nameNow, r.you as Seat)).filter((t): t is string => t !== null);
       if (lines.length) setFeed((f) => [...f, ...lines.map((text) => ({ id: ++counter.current, text }))].slice(-60));
       for (const e of events) {
         const id = ++counter.current;
@@ -98,7 +104,7 @@ export function Table({ conn }: { conn: Connection }) {
   useEffect(() => {
     if (prevOwner.current === room.owner) return;
     prevOwner.current = room.owner;
-    const text = room.owner === me ? "You are now the table owner" : `${name(room.owner)} is now the table owner`;
+    const text = room.owner === me ? "You are now the table owner" : `${name(room.owner as Seat)} is now the table owner`;
     const id = ++counter.current;
     setFeed((f) => [...f, { id, text: `${text}.` }].slice(-60));
     setToast({ id, text });
@@ -404,7 +410,7 @@ function PeekOverlay({ trick, name, me, onClose }: { trick: ShownTrick; name: (s
 // ---------------------------------------------------------------------------
 // Between contracts, end of game, pauses
 
-function ContractSummary({ conn }: { conn: Connection }) {
+function ContractSummary({ conn }: { conn: TrixConn }) {
   const room = conn.room!;
   const game = conn.game!;
   const now = useTick(250);
@@ -475,7 +481,7 @@ function ContractSummary({ conn }: { conn: Connection }) {
   );
 }
 
-function GameOver({ conn }: { conn: Connection }) {
+function GameOver({ conn }: { conn: TrixConn }) {
   const room = conn.room!;
   const game = conn.game!;
   const st = game.standings;
@@ -512,7 +518,7 @@ function GameOver({ conn }: { conn: Connection }) {
   );
 }
 
-function Paused({ conn }: { conn: Connection }) {
+function Paused({ conn }: { conn: TrixConn }) {
   const room = conn.room!;
   const isOwner = room.you === room.owner;
   const emptySeat = room.waitingFor.some((s) => room.seats[s]?.kind === "empty");
@@ -580,7 +586,7 @@ const ROW_H = 66;
 const MOVE_SHOW_MS = 5000;
 
 /** Leaderboard: ranked by total, rows slide when the order changes, with the last change shown. */
-function Scoreboard({ conn }: { conn: Connection }) {
+function Scoreboard({ conn }: { conn: TrixConn }) {
   const room = conn.room!;
   const game = conn.game!;
   const isOwner = room.you === room.owner;
@@ -636,7 +642,7 @@ function LeaderRow(props: {
   rank: number;
   tied: boolean;
   last: boolean;
-  conn: Connection;
+  conn: TrixConn;
   moved: number;
   delta: number;
   showKick: boolean;

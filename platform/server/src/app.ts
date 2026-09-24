@@ -7,7 +7,6 @@ import { existsSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { extname, resolve, sep } from "node:path";
 import { WebSocketServer, type WebSocket } from "ws";
-import { ENGINE_VERSION } from "@games/trix";
 import type { ServerMessage } from "@platform/protocol";
 import { Hub, type HubSnapshot } from "./hub";
 import { RateLimiter } from "./limiter";
@@ -33,6 +32,10 @@ export interface AppOptions {
   maxRoomsPerIp?: number;
   /** Wrong invite links / seat tokens / room ids allowed per address per 10 minutes. */
   maxJoinFailures?: number;
+  /** Games switched off: no new tables; tables already playing finish. */
+  closedGames?: string[];
+  /** The games on offer (default: all). Tests pass their own. */
+  games?: ConstructorParameters<typeof Hub>[0] extends infer O ? (O extends { games?: infer G } ? G : never) : never;
 }
 
 const isLoopback = (a: string | undefined) => a === "127.0.0.1" || a === "::1" || a === "::ffff:127.0.0.1";
@@ -96,6 +99,8 @@ export async function startApp(opts: AppOptions): Promise<App> {
     maxRoomsPerIp: opts.maxRoomsPerIp ?? 5,
     maxJoinFailures: opts.maxJoinFailures ?? 20,
     onChange: () => scheduleSave(),
+    closedGames: new Set(opts.closedGames ?? []),
+    ...(opts.games ? { games: opts.games } : {}),
   });
   const maxPerIp = opts.maxSocketsPerIp ?? 20;
   const socketsPerIp = new Map<string, number>();
@@ -179,7 +184,12 @@ export async function startApp(opts: AppOptions): Promise<App> {
   // these timeouts when it checks its connections, every 30 s by default: check every 2 s.
   const server: Server = createServer({ headersTimeout: 10_000, requestTimeout: 15_000, connectionsCheckingInterval: 2_000 }, (req, res) => {
     if (req.url === "/api/health") {
-      res.writeHead(200, { ...SECURITY_HEADERS, "content-type": "application/json", "cache-control": "no-store" }).end(JSON.stringify({ ok: true, engine: ENGINE_VERSION }));
+      res.writeHead(200, { ...SECURITY_HEADERS, "content-type": "application/json", "cache-control": "no-store" }).end(JSON.stringify({ ok: true, games: Object.fromEntries(hub.listGames().map((g) => [g.id, g.version])) }));
+      return;
+    }
+    if (req.url === "/api/games") {
+      // The home page's list of games, with whether each is open right now.
+      res.writeHead(200, { ...SECURITY_HEADERS, "content-type": "application/json", "cache-control": "no-store" }).end(JSON.stringify(hub.listGames()));
       return;
     }
     if (req.method !== "GET" && req.method !== "HEAD") {

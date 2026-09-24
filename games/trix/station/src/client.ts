@@ -4,7 +4,11 @@
 import { createWriteStream, type WriteStream } from "node:fs";
 import WebSocket from "ws";
 import { nextRandom, type Action, type GameEvent, type PlayerView, type Seat } from "@games/trix";
-import type { ClientMessage, RoomView, ServerMessage } from "@platform/protocol";
+import type { ClientRequest, RoomView, ServerMessage as AnyServerMessage } from "@platform/protocol";
+
+/** The station plays Trix: messages carry Trix's views, events and moves. */
+type ServerMessage = AnyServerMessage<PlayerView, GameEvent>;
+type ClientMessage = (Exclude<ClientRequest, { type: "action" }> | { type: "action"; action: Action }) & { id?: number };
 import { checkView, type Finding } from "./referee";
 
 export interface Policy {
@@ -163,7 +167,7 @@ export class StationClient {
       case "joined":
         this.roomId = msg.roomId;
         this.token = msg.token;
-        this.seat = msg.seat;
+        this.seat = msg.seat as Seat;
         this.acted.clear(); // back at the table: look at the state afresh, like a person would
         this.firstViewAfterJoin = null;
         this.awaitingFirstView = true;

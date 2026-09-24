@@ -106,7 +106,7 @@ async function newPlayer(label, port = serverPort) {
   return page;
 }
 async function createTable(page, name) {
-  await page.goto(page.base);
+  await page.goto(page.base + "/trix");
   await page.fill("#name", name);
   await page.click("text=Create a table");
   await page.waitForSelector(".lobby");
@@ -425,7 +425,7 @@ await runCase("C13", "HTML and script in player names", "Names are shown as plai
 
 await runCase("C14", "Play against bots", "On the first screen, a name and one tap on a level (here Hard) starts a game at once against three bots of that level, named after it; the game plays.", async () => {
   const me = await newPlayer("solo");
-  await me.goto(me.base);
+  await me.goto(me.base + "/trix");
   await me.fill("#name", "Seif");
   await shot(me, "C14-entry");
   await me.click(".solo-level.hard");
@@ -455,6 +455,25 @@ await runCase("C15", "Choosing the bots' level in the lobby", "The owner picks a
   await owner.context().close();
   const ok = seats.includes("Easy bot") && seats.includes("Hard bot");
   return { pass: ok, got: `seats: ${seats.join(", ")}` };
+});
+
+await runCase("C16", "The hub: pick a game", "The home page lists the games (Trix playable, the others coming soon); Trix opens its own page; the browser's back button returns to the list; the game list says Trix is open.", async () => {
+  const p = await newPlayer("hub");
+  await p.goto(p.base);
+  await p.waitForSelector(".game-tile");
+  const tiles = await p.locator(".game-tile strong").allInnerTexts();
+  const soon = await p.locator(".game-tile.soon").count();
+  await shot(p, "C16-home");
+  await p.click('.game-tile:has-text("Trix")');
+  await p.waitForSelector("#name");
+  const onTrix = new URL(p.url()).pathname === "/trix" && (await text(p)).includes("Create a table");
+  await p.goBack();
+  await p.waitForSelector(".game-tile");
+  const backHome = new URL(p.url()).pathname === "/";
+  const list = await p.evaluate(() => fetch("/api/games").then((r) => r.json()));
+  await p.context().close();
+  const ok = tiles[0] === "Trix" && soon > 3 && onTrix && backHome && list[0]?.id === "trix" && list[0]?.open === true;
+  return { pass: ok, got: `tiles: ${tiles.slice(0, 4).join(", ")}…; coming soon: ${soon}; Trix page: ${onTrix}; back to the list: ${backHome}; /api/games: ${JSON.stringify(list)}` };
 });
 
 await runCase("C9", "Server restarts in the middle of a game", "After a restart (every deploy is one) the players' pages reconnect by themselves, and the game carries on where it was: same contract, same cards.", async () => {

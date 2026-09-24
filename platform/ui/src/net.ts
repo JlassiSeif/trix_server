@@ -2,9 +2,9 @@
 // token so a refresh or a dropped connection puts you back where you were (R-TABLE-5).
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { GameEvent, PlayerView } from "@games/trix";
 import type { ClientMessage, RoomView, ServerMessage } from "@platform/protocol";
 
+// Storage keys keep their "trix." prefix from before the hub, so players keep their seats and names.
 const tokenKey = (roomId: string) => `trix.seat.${roomId}`;
 export const seatToken = {
   get: (roomId: string) => localStorageGet(tokenKey(roomId)),
@@ -32,11 +32,14 @@ function localStorageSet(key: string, value: string | null): void {
   }
 }
 
-export interface Connection {
+/** The connection as a game's screens see it: `View` and `Event` are that game's own types. */
+export interface Connection<View = unknown, Event = unknown> {
   online: boolean;
   roomId: string | null;
   room: RoomView | null;
-  game: PlayerView | null;
+  game: View | null;
+  /** The game of the last table we were at (stays after leaving, to send the player back to that game). */
+  lastGame: string | null;
   error: { code: string; message: string; at: number } | null;
   removed: "kicked" | "left" | "roomClosed" | null;
   /** This seat was opened in another tab or window; this one has stopped. */
@@ -49,14 +52,15 @@ export interface Connection {
   /** Start (or switch to) a room: remembered so reconnects rejoin it. */
   join: (msg: Extract<ClientMessage, { type: "createRoom" | "joinRoom" }>) => void;
   /** Subscribe to game events as they arrive (for animations, toasts and the feed). */
-  onEvents: (fn: (events: GameEvent[], room: RoomView, game: PlayerView | null) => void) => () => void;
+  onEvents: (fn: (events: Event[], room: RoomView, game: View | null) => void) => () => void;
 }
 
 export function useConnection(): Connection {
   const [online, setOnline] = useState(false);
   const [roomId, setRoomId] = useState<string | null>(null);
   const [room, setRoom] = useState<RoomView | null>(null);
-  const [game, setGame] = useState<PlayerView | null>(null);
+  const [game, setGame] = useState<unknown>(null);
+  const [lastGame, setLastGame] = useState<string | null>(null);
   const [error, setError] = useState<Connection["error"]>(null);
   const [removed, setRemoved] = useState<Connection["removed"]>(null);
   const [replaced, setReplaced] = useState(false);
@@ -67,7 +71,7 @@ export function useConnection(): Connection {
   const socket = useRef<WebSocket | null>(null);
   const pendingJoin = useRef<ClientMessage | null>(null);
   const joinedRoom = useRef<string | null>(null);
-  const listeners = useRef(new Set<(e: GameEvent[], r: RoomView, g: PlayerView | null) => void>());
+  const listeners = useRef(new Set<(e: unknown[], r: RoomView, g: unknown) => void>());
   const stopped = useRef(false);
 
   const rawSend = useCallback((msg: ClientMessage) => {
@@ -112,6 +116,7 @@ export function useConnection(): Connection {
           case "update":
             setRoom(msg.room);
             setGame(msg.game);
+            setLastGame(msg.room.game);
             if (msg.events.length) for (const fn of listeners.current) fn(msg.events, msg.room, msg.game);
             break;
           case "error":
@@ -186,5 +191,5 @@ export function useConnection(): Connection {
     reconnectNow.current();
   }, []);
 
-  return { online, roomId, room, game, error, removed, replaced, takeOver, lost, send: rawSend, join, onEvents };
+  return { online, roomId, room, game, lastGame, error, removed, replaced, takeOver, lost, send: rawSend, join, onEvents };
 }

@@ -1,0 +1,22 @@
+{
+  "name": "@games/trix-ui",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@games/trix": "*",
+    "@platform/protocol": "*",
+    "@platform/ui": "*",
+    "react": "19.3.0"
+  },
+  "devDependencies": {
+    "@types/react": "19.3.0",
+    "vite": "8.3.0"
+  }
+}

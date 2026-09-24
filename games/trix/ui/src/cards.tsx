@@ -1,0 +1,26 @@
+import type { CardId, Contract } from "@games/trix";
+import { cardLabel } from "./text";
+
+// Card faces and back come from the old client's assets (archive/client-sdl/assets/cards); contract
+// icons are cropped from its hand-drawn tiles (assets/lo3ab.bmp). Bundled with the Trix screens.
+const urls = (files: Record<string, string>) => Object.fromEntries(Object.entries(files).map(([path, url]) => [path.slice(path.lastIndexOf("/") + 1, -4), url]));
+const CARD_URL = urls(import.meta.glob<string>("./assets/cards/*.png", { eager: true, query: "?url", import: "default" }));
+const CONTRACT_URL = urls(import.meta.glob<string>("./assets/contracts/*.png", { eager: true, query: "?url", import: "default" }));
+
+export function Card({ id, className = "", onClick, title }: { id: CardId | "back"; className?: string; onClick?: () => void; title?: string }) {
+  const alt = id === "back" ? "card back" : cardLabel(id);
+  return (
+    <img
+      className={`card ${onClick ? "clickable" : ""} ${className}`}
+      src={CARD_URL[id]}
+      alt={alt}
+      title={title ?? alt}
+      draggable={false}
+      onClick={onClick}
+    />
+  );
+}
+
+export function ContractIcon({ contract, className = "" }: { contract: Contract; className?: string }) {
+  return <img className={`contract-icon ${className}`} src={CONTRACT_URL[contract]} alt={contract} title={contract} draggable={false} />;
+}

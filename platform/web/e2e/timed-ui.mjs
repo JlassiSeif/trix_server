@@ -29,7 +29,7 @@ async function playIfMyTurn() {
   else if (await count('.summary button:has-text("Continue"):not([disabled])')) await page.click('.summary button:has-text("Continue")');
 }
 
-await page.goto(base);
+await page.goto(base + "/trix");
 await page.fill("#name", "Checker");
 await page.click("text=Create a table");
 await page.waitForSelector(".lobby");

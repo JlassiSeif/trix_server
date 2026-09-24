@@ -9,6 +9,7 @@
 //   TRIX_ORIGINS      comma-separated pages allowed to connect, e.g. https://trix.example.com
 //   TRIX_LOG_LEVEL    debug | info (default) | warn | error | silent
 //   WEB_DIST          the built web app (default platform/web/dist)
+//   TRIX_CLOSED_GAMES comma-separated game ids switched off: no new tables, running ones finish
 //   TRIX_SPEED        tests only: bots and countdowns N times faster
 
 import { fileURLToPath } from "node:url";
@@ -17,7 +18,7 @@ import { log } from "./log";
 import { TIMING } from "./room";
 
 const speed = Number(process.env.TRIX_SPEED ?? 1);
-if (speed > 1) for (const k of Object.keys(TIMING) as (keyof typeof TIMING)[]) TIMING[k] = Math.round(TIMING[k] / speed);
+if (speed > 1) TIMING.speed = speed;
 
 process.on("uncaughtException", (e) => log("error", "process.uncaughtException", { error: e }));
 process.on("unhandledRejection", (e) => log("error", "process.unhandledRejection", { error: e }));
@@ -31,6 +32,7 @@ const app = await startApp({
   stateFile: process.env.TRIX_STATE_FILE || undefined,
   maxRooms: Number(process.env.TRIX_MAX_ROOMS ?? 200),
   trustProxy: process.env.TRIX_TRUST_PROXY === "private" ? "private" : process.env.TRIX_TRUST_PROXY === "1",
+  closedGames: (process.env.TRIX_CLOSED_GAMES ?? "").split(",").map((g) => g.trim()).filter(Boolean),
   allowedOrigins: process.env.TRIX_ORIGINS ? process.env.TRIX_ORIGINS.split(",").map((o) => o.trim()) : undefined,
 });
 log("info", "server.listening", { url: `http://${host}:${app.port}`, port: app.port, speed, stateFile: process.env.TRIX_STATE_FILE || null, rooms: app.hub.rooms.size });

@@ -1,8 +1,9 @@
 // Routes each connection to its room. Parses and checks every incoming message; nothing a
 // browser sends can crash the server or reach another room.
 
-import { isBotLevel } from "@games/trix";
-import type { ServerMessage } from "@platform/protocol";
+import type { GameListing, ServerMessage } from "@platform/protocol";
+import type { GameModule } from "@platform/sdk";
+import { DEFAULT_GAME, GAMES } from "./games";
 import { clip, log } from "./log";
 import { Room, RoomError, cleanName, randomId, type Conn, type RoomSnapshot } from "./room";
 
@@ -31,8 +32,28 @@ export class Hub {
       maxJoinFailures?: number;
       failureWindowMs?: number;
       onChange?: () => void;
+      /** The games on offer (default: all of ./games). Tests pass their own. */
+      games?: Record<string, GameModule>;
+      /** Games switched off: no new tables; tables already playing finish (docs/architecture.md §12). */
+      closedGames?: ReadonlySet<string>;
     } = {},
   ) {}
+
+  get games(): Record<string, GameModule> {
+    return this.options.games ?? GAMES;
+  }
+
+  /** The games as the home page lists them. */
+  listGames(): GameListing[] {
+    return Object.values(this.games).map((g) => ({
+      id: g.meta.id,
+      name: g.meta.name,
+      version: g.meta.version,
+      seats: g.meta.seats,
+      botLevels: g.meta.botLevels,
+      open: !this.options.closedGames?.has(g.meta.id),
+    }));
+  }
 
   private recentFailures(ip: string, now = Date.now()): number[] {
     const window = this.options.failureWindowMs ?? 10 * 60 * 1000;
@@ -55,7 +76,12 @@ export class Hub {
     if (snap.version !== 1) throw new Error(`unknown state file version ${String(snap.version)}`);
     for (const r of snap.rooms) {
       if (now - r.lastActive > ROOM_IDLE_MS) continue;
-      const room = Room.fromJSON(r, this.roomHooks());
+      const module = this.games[r.gameId ?? DEFAULT_GAME];
+      if (!module) {
+        log("warn", "state.unknownGame", { room: r.id, game: r.gameId });
+        continue;
+      }
+      const room = Room.fromJSON(r, module, this.roomHooks());
       this.rooms.set(room.id, room);
     }
     for (const room of this.rooms.values()) room.wake();
@@ -80,7 +106,7 @@ export class Hub {
     }
     const re = typeof msg.id === "number" ? msg.id : undefined;
     try {
-      if (msg.type === "createRoom") return this.create(conn, msg.name, msg.bots);
+      if (msg.type === "createRoom") return this.create(conn, msg.name, msg.bots, msg.game);
       if (msg.type === "joinRoom") return this.join(conn, msg);
       const room = this.roomOf.get(conn);
       if (!room) return this.error(conn, "NOT_SEATED", "Join a room first", re);
@@ -114,10 +140,14 @@ export class Hub {
     }
   }
 
-  private create(conn: Conn, name: unknown, bots: unknown): void {
+  private create(conn: Conn, name: unknown, bots: unknown, gameId: unknown): void {
     // Check first: a refused request must never pull the player out of the table they're at.
     if (!cleanName(name)) throw new RoomError("BAD_NAME", "Pick a name (1 to 20 characters)");
-    if (bots !== undefined && !isBotLevel(bots)) throw new RoomError("BAD_MESSAGE", "Unknown bot level");
+    const wanted = gameId === undefined ? DEFAULT_GAME : gameId;
+    const module = typeof wanted === "string" && Object.hasOwn(this.games, wanted) ? this.games[wanted]! : null;
+    if (!module) throw new RoomError("BAD_MESSAGE", "Unknown game");
+    if (this.options.closedGames?.has(module.meta.id)) throw new RoomError("GAME_CLOSED", `${module.meta.name} is closed for a moment. Try again a little later.`);
+    if (bots !== undefined && (typeof bots !== "string" || !module.meta.botLevels.includes(bots))) throw new RoomError("BAD_MESSAGE", "Unknown bot level");
     const previous = this.roomOf.get(conn);
     if (this.rooms.size >= (this.options.maxRooms ?? Infinity)) throw new RoomError("SERVER_FULL", "The server has too many tables right now. Try again later.");
     const perIp = this.options.maxRoomsPerIp ?? Infinity;
@@ -133,15 +163,15 @@ export class Hub {
       log("info", "room.recycled", { room: abandoned.id, ip: conn.ip });
       abandoned.close();
     }
-    let id = randomId(6);
-    while (this.rooms.has(id)) id = randomId(6);
-    const room = new Room(id, this.roomHooks());
+    let roomId = randomId(6);
+    while (this.rooms.has(roomId)) roomId = randomId(6);
+    const room = new Room(roomId, module, this.roomHooks());
     room.creatorIp = conn.ip;
-    this.rooms.set(id, room);
+    this.rooms.set(roomId, room);
     try {
       room.seatNewPlayer(conn, name, null);
     } catch (e) {
-      this.rooms.delete(id);
+      this.rooms.delete(roomId);
       throw e;
     }
     previous?.disconnect(conn);

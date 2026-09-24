@@ -1,37 +1,43 @@
 import { useState, type FormEvent } from "react";
-import type { BotLevel } from "@games/trix";
 import { NAME_MAX } from "@platform/protocol";
-import type { Connection } from "../net";
-import { savedName } from "../net";
+import { savedName, type Connection, type GameUI } from "@platform/ui";
+import { Notices } from "./Notices";
 
-/** Home: create a table. Invite link: take a seat. Both only ask for a name (R-TABLE-1). */
-export function Entry({ conn, roomId, invite }: { conn: Connection; roomId: string | null; invite: string | null }) {
+/**
+ * A game's page (/<game>): create a table for friends, or play against bots (R-TABLE-13).
+ * An invite link (/r/<room>): take a seat. Both only ask for a name (R-TABLE-1).
+ */
+export function Entry({ conn, game, roomId, invite, go }: { conn: Connection; game: GameUI | null; roomId: string | null; invite: string | null; go: (path: string) => void }) {
   const [name, setName] = useState(savedName.get());
   const [busy, setBusy] = useState(false);
   const joining = roomId !== null;
 
-  /** Create a table (with `bots`: against three bots of that level, R-TABLE-13), or take a seat. */
-  const go = (bots?: BotLevel) => {
+  /** Create a table (with `bots`: against bots of that level), or take a seat. */
+  const start = (bots?: string) => {
     const clean = name.trim();
     if (!clean) return;
     savedName.set(clean);
     setBusy(true);
     if (joining) conn.join({ type: "joinRoom", roomId, invite: invite ?? undefined, name: clean });
-    else conn.join({ type: "createRoom", name: clean, ...(bots ? { bots } : {}) });
+    else if (game) conn.join({ type: "createRoom", name: clean, game: game.id, ...(bots ? { bots } : {}) });
     setTimeout(() => setBusy(false), 1500);
   };
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    go();
+    start();
   };
   const canGo = !!name.trim() && !busy && conn.online;
 
   return (
     <main className="entry">
-      <h1>Trix</h1>
-      <p className="tagline">{joining ? "You've been invited to a table." : "Seven contracts, four players, and the lowest score wins."}</p>
-      {conn.removed && <p className="notice">{removedText[conn.removed]}</p>}
-      {conn.lost && !conn.removed && <p className="notice">That table doesn't exist any more. Create a new one below, or ask for a new link.</p>}
+      <nav className="crumbs">
+        <a href="/" onClick={(e) => (e.preventDefault(), go("/"))}>
+          ← All games
+        </a>
+      </nav>
+      <h1>{joining ? "Join a table" : game?.name}</h1>
+      <p className="tagline">{joining ? "You've been invited to a table." : game?.tagline}</p>
+      <Notices conn={conn} />
       {joining && !invite && <p className="notice">This link has no invite code. Ask the table owner for the full link.</p>}
       <form onSubmit={submit}>
         <label htmlFor="name">Your name</label>
@@ -39,16 +45,16 @@ export function Entry({ conn, roomId, invite }: { conn: Connection; roomId: stri
         <button type="submit" disabled={!canGo}>
           {joining ? "Take a seat" : "Create a table"}
         </button>
-        {!joining && <p className="muted small hint">…and send the link to three friends.</p>}
+        {!joining && <p className="muted small hint">…and send the link to your friends.</p>}
       </form>
-      {!joining && (
+      {!joining && game && game.levels.length > 0 && (
         <section className="solo">
           <h2>Or play alone against bots</h2>
           <div className="solo-levels">
-            {LEVELS.map(([level, label, what]) => (
-              <button key={level} className={`solo-level ${level}`} disabled={!canGo} onClick={() => go(level)}>
-                <strong>{label}</strong>
-                <span className="small">{what}</span>
+            {game.levels.map((l) => (
+              <button key={l.id} className={`solo-level ${l.id}`} disabled={!canGo} onClick={() => start(l.id)}>
+                <strong>{l.label}</strong>
+                <span className="small">{l.what}</span>
               </button>
             ))}
           </div>
@@ -56,24 +62,6 @@ export function Entry({ conn, roomId, invite }: { conn: Connection; roomId: stri
       )}
       {conn.error && !(conn.lost && (conn.error.code === "ROOM_NOT_FOUND" || conn.error.code === "BAD_TOKEN")) && <p className="error">{conn.error.message}</p>}
       {!conn.online && <p className="muted">Connecting to the server…</p>}
-      {joining && (
-        <p className="muted">
-          <a href="/">Or create your own table</a>
-        </p>
-      )}
     </main>
   );
 }
-
-/** docs/bots.md §2: how each level feels. */
-const LEVELS: [BotLevel, string, string][] = [
-  ["easy", "Easy", "a beginner who knows the rules"],
-  ["medium", "Medium", "a decent club player"],
-  ["hard", "Hard", "a strong, patient player"],
-];
-
-const removedText = {
-  kicked: "The table owner removed you from the table.",
-  left: "You left the table.",
-  roomClosed: "That table was closed.",
-};

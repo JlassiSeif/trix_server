@@ -5,7 +5,11 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, statSync, writeFileSyn
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import WebSocket from "ws";
-import type { ServerMessage } from "@platform/protocol";
+import type { GameEvent, PlayerView } from "@games/trix";
+import type { ServerMessage as AnyMessage } from "@platform/protocol";
+
+/** These tests play Trix, so its views and events are typed as Trix's. */
+type ServerMessage = AnyMessage<PlayerView, GameEvent>;
 import { isPrivate, startApp, type App } from "../src/app";
 
 const dir = mkdtempSync(join(tmpdir(), "trix-app-"));

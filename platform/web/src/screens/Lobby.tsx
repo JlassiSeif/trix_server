@@ -1,40 +1,39 @@
 import { useState } from "react";
-import { BOT_LEVELS, SEATS, type BotLevel, type Seat } from "@games/trix";
-import type { Connection } from "../net";
-import { InviteLink, LeaveButton } from "../components/bits";
+import { InviteLink, LeaveButton, type Connection, type GameUI } from "@platform/ui";
 
-/** Before the game: seats fill up; the game starts on its own with the 4th (R-TABLE-3). */
-export function Lobby({ conn }: { conn: Connection }) {
+/** Before the game: seats fill up; the game starts on its own with the last one (R-TABLE-3). */
+export function Lobby({ conn, game }: { conn: Connection; game: GameUI | null }) {
   const room = conn.room!;
   const isOwner = room.you === room.owner;
   const full = room.seats.every((s) => s.kind !== "empty");
-  const [level, setLevel] = useState<BotLevel>("medium");
+  const levels = game?.levels ?? [];
+  // The middle level by default (for Trix: medium, the stand-in level).
+  const [level, setLevel] = useState(levels[Math.floor((levels.length - 1) / 2)]?.id ?? "");
 
   return (
     <main className="lobby">
-      <h1>Trix table</h1>
-      <p className="tagline">The game starts as soon as all 4 seats are taken.</p>
+      <h1>{game?.name ?? "Game"} table</h1>
+      <p className="tagline">The game starts as soon as all {room.seats.length} seats are taken.</p>
       {room.invitePath && (
         <section>
           <h2>Invite your friends</h2>
           <InviteLink path={room.invitePath} />
         </section>
       )}
-      {isOwner && !full && (
+      {isOwner && !full && levels.length > 0 && (
         <section className="bot-level">
           <h2>Bots you add play at</h2>
           <div className="levels" role="radiogroup" aria-label="Bot level">
-            {BOT_LEVELS.map((l) => (
-              <button key={l} role="radio" aria-checked={l === level} className={l === level ? "chosen" : "secondary"} onClick={() => setLevel(l)}>
-                {l[0]!.toUpperCase() + l.slice(1)}
+            {levels.map((l) => (
+              <button key={l.id} role="radio" aria-checked={l.id === level} className={l.id === level ? "chosen" : "secondary"} onClick={() => setLevel(l.id)}>
+                {l.label}
               </button>
             ))}
           </div>
         </section>
       )}
       <section className="lobby-seats">
-        {SEATS.map((s: Seat) => {
-          const seat = room.seats[s]!;
+        {room.seats.map((seat, s) => {
           return (
             <div key={s} className={`lobby-seat ${seat.kind}`}>
               <span className="seat-no">Seat {s + 1}</span>
@@ -45,7 +44,7 @@ export function Lobby({ conn }: { conn: Connection }) {
                 {seat.kind === "bot" ? "bot" : ""}
                 {seat.kind === "human" && !seat.connected ? " · away" : ""}
               </span>
-              {isOwner && seat.kind === "empty" && <button onClick={() => conn.send({ type: "addBot", seat: s, level })}>Add a bot</button>}
+              {isOwner && seat.kind === "empty" && <button onClick={() => conn.send({ type: "addBot", seat: s, ...(level ? { level } : {}) })}>Add a bot</button>}
               {isOwner && seat.kind === "human" && seat.connected && s !== room.you && (
                 <button className="secondary" onClick={() => conn.send({ type: "makeOwner", seat: s })}>
                   Make owner

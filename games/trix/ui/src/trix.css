@@ -1,74 +1,4 @@
-:root {
-  --felt: #0f5132;
-  --felt-dark: #0a3a24;
-  --ink: #1d2320;
-  --paper: #fbf7ee;
-  --gold: #f2c14e;
-  --red: #c0392b;
-  --green: #1e8449;
-  --muted: #7d8a84;
-  --side: #10201b;
-  --card-w: 84px;
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  color: var(--ink);
-  background: var(--felt-dark);
-}
-* { box-sizing: border-box; }
-html, body, #root { margin: 0; height: 100%; }
-body { background: var(--felt-dark); }
-button {
-  font: inherit; font-weight: 600; border: 0; border-radius: 8px; padding: 0.55rem 1rem;
-  background: var(--gold); color: #2a1f00; cursor: pointer;
-}
-button:hover:not(:disabled) { filter: brightness(1.08); }
-button:disabled { opacity: 0.5; cursor: default; }
-button.secondary { background: #e3ddd0; color: var(--ink); }
-button.danger { background: var(--red); color: white; }
-.leave-confirm { background: rgba(0,0,0,0.3); border-radius: 10px; padding: 0.6rem 0.8rem; font-size: 0.9rem; }
-.leave-confirm p { margin: 0 0 0.5rem; }
-button.link { background: none; color: inherit; text-decoration: underline; opacity: 0.75; padding: 0.3rem 0; }
-button.icon { background: none; color: inherit; padding: 0 0.4rem; font-size: 1.1rem; opacity: 0.7; }
-input { font: inherit; padding: 0.55rem 0.7rem; border-radius: 8px; border: 1px solid #c9c2b2; }
-.muted { color: var(--muted); }
-.small { font-size: 0.8rem; }
-.error { color: #ffb3a7; }
-.notice { background: #fff3cd; color: #5c4400; padding: 0.6rem 0.8rem; border-radius: 8px; }
-.row { display: flex; gap: 0.6rem; flex-wrap: wrap; justify-content: center; }
-.chip { font-size: 0.7rem; padding: 0.05rem 0.4rem; border-radius: 999px; background: rgba(255,255,255,0.15); }
-.chip.warn { background: #b9770e; color: white; }
-
-/* ---------- Entry and lobby ---------- */
-.entry, .lobby {
-  min-height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: 1rem; padding: 2rem 1rem; color: var(--paper); text-align: center;
-  background: radial-gradient(ellipse at center, var(--felt) 0%, var(--felt-dark) 75%);
-}
-.entry h1, .lobby h1 { font-size: 3rem; margin: 0; letter-spacing: 0.05em; }
-.tagline { margin: 0; opacity: 0.85; }
-.entry form { display: flex; flex-direction: column; gap: 0.5rem; width: min(320px, 100%); text-align: left; }
-.lobby section { width: min(640px, 100%); }
-.lobby h2 { font-size: 1rem; margin: 0 0 0.4rem; opacity: 0.85; }
-.invite { display: flex; gap: 0.5rem; }
-.invite input { flex: 1; min-width: 0; }
-.lobby-seats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0.7rem; }
-.lobby-seat {
-  background: rgba(0,0,0,0.25); border-radius: 12px; padding: 0.9rem; display: flex; flex-direction: column; gap: 0.35rem;
-  align-items: center; border: 2px dashed rgba(255,255,255,0.2);
-}
-.lobby-seat.human, .lobby-seat.bot { border-style: solid; border-color: rgba(242,193,78,0.5); }
-.seat-no { font-size: 0.75rem; opacity: 0.6; }
-.entry .hint { margin: 0; color: #b8c9c0; }
-.solo { width: min(520px, 100%); display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.6rem; }
-.solo h2, .bot-level h2 { font-size: 1rem; margin: 0; opacity: 0.85; }
-.solo-levels { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; }
-.solo-level { display: flex; flex-direction: column; gap: 0.2rem; align-items: center; background: rgba(0,0,0,0.28); color: var(--paper); border: 2px solid rgba(242,193,78,0.45); padding: 0.6rem 0.4rem; }
-.solo-level strong { font-size: 1.05rem; color: var(--gold); }
-.solo-level .small { opacity: 0.85; font-weight: 400; }
-.bot-level { display: flex; flex-direction: column; gap: 0.4rem; align-items: center; }
-.levels { display: inline-flex; gap: 0.3rem; background: rgba(0,0,0,0.25); padding: 0.25rem; border-radius: 10px; }
-.levels button { padding: 0.4rem 0.9rem; }
-.levels button.secondary { background: transparent; color: var(--paper); }
-
+/* The Trix table. Loaded with the Trix screens only. */
 /* ---------- Table layout ---------- */
 .table-screen { display: grid; grid-template-columns: 1fr 300px; height: 100vh; }
 .felt {
@@ -170,18 +100,7 @@ input { font: inherit; padding: 0.55rem 0.7rem; border-radius: 8px; border: 1px 
 @media (hover: hover) { .hand .card.legal:hover { transform: translateY(-22px); } }
 .hand .card.illegal { filter: grayscale(0.6) brightness(0.55); }
 
-/* Toasts and overlays */
-.toast {
-  position: absolute; top: 18%; left: 50%; transform: translateX(-50%); z-index: 25; display: flex; align-items: center; gap: 0.8rem;
-  background: var(--paper); color: var(--ink); padding: 0.7rem 1.2rem; border-radius: 14px; font-size: 1.3rem; font-weight: 700;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.45); animation: pop 0.25s ease-out; pointer-events: none;
-}
 .toast .contract-icon { width: 54px; border-radius: 6px; }
-@keyframes pop { from { transform: translateX(-50%) scale(0.85); opacity: 0; } }
-.overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.55); display: flex; align-items: center; justify-content: center; z-index: 30; padding: 1rem; }
-.overlay.light { background: rgba(0,0,0,0.25); }
-.panel { background: var(--paper); color: var(--ink); border-radius: 16px; padding: 1.2rem 1.4rem; box-shadow: 0 16px 50px rgba(0,0,0,0.5); max-width: 560px; width: 100%; text-align: center; }
-.panel h2 { margin: 0.2rem 0; }
 .peek { width: auto; }
 .peek-cards { display: flex; gap: 0.8rem; justify-content: center; }
 .peek-cards figure { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 0.3rem; }
@@ -191,8 +110,6 @@ input { font: inherit; padding: 0.55rem 0.7rem; border-radius: 8px; border: 1px 
 .summary table { width: 100%; border-collapse: collapse; margin: 0.8rem 0; }
 .summary th, .summary td { padding: 0.35rem 0.4rem; border-bottom: 1px solid #e5dfd1; text-align: left; }
 .summary tr.you td { font-weight: 700; }
-.bad { color: var(--red); font-weight: 700; }
-.good { color: var(--green); font-weight: 700; }
 .summary-foot { display: flex; gap: 1rem; align-items: center; justify-content: center; flex-wrap: wrap; }
 .gameover .loser { font-size: 2.2rem; color: var(--red); margin: 0.2rem 0; }
 .gameover .loser-score { font-size: 1.3rem; font-weight: 700; margin: 0 0 0.6rem; }
@@ -201,7 +118,6 @@ input { font: inherit; padding: 0.55rem 0.7rem; border-radius: 8px; border: 1px 
 .standings li span { float: right; font-weight: 700; }
 .paused .row { margin-top: 1rem; }
 .paused .invite { margin-top: 0.5rem; }
-.offline { position: absolute; top: 0; left: 0; right: 0; background: var(--red); color: white; text-align: center; padding: 0.3rem; z-index: 40; }
 
 /* Side panel: leaderboard (rows slide to their rank) */
 .lb { position: relative; }
@@ -306,10 +222,6 @@ input { font: inherit; padding: 0.55rem 0.7rem; border-radius: 8px; border: 1px 
 
 /* Phones (portrait): sizes follow the screen width. */
 @media (max-width: 600px) {
-  .solo-levels { grid-template-columns: 1fr; }
-  .solo-level { flex-direction: row; justify-content: space-between; padding: 0.55rem 0.8rem; text-align: right; }
-  .entry, .lobby { justify-content: flex-start; padding-top: 2.5rem; }
-  .entry h1, .lobby h1 { font-size: 2.4rem; }
   /* The hand: 8 overlapping cards fill the width, each showing its corner. */
   .hand { --hc: min(74px, calc((100vw - 16px) / 5.1)); padding-top: 8px; }
   .hand .card { width: var(--hc); }
@@ -353,8 +265,6 @@ input { font: inherit; padding: 0.55rem 0.7rem; border-radius: 8px; border: 1px 
   .trix-finishers { font-size: 0.75rem; gap: 0.5rem; }
 
   /* Windows over the table. */
-  .overlay { padding: 0.6rem; }
-  .panel { padding: 0.9rem 0.8rem; max-height: calc(100dvh - 1.2rem); overflow-y: auto; }
   .peek-cards { gap: 0.4rem; }
   .peek-cards .card { width: min(64px, 19vw); }
   .peek-cards figcaption { font-size: 0.8rem; }

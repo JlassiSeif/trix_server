@@ -1,23 +1,10 @@
-// One table of 4 (RULES.md §7). Owns the seats, the game state and the timers; every game
-// move goes through the engine. Nothing here trusts the browser.
+// One table (docs/architecture.md §4). Owns the seats, the game state and the timers; every
+// move goes through the game's rules, via the game contract (@platform/sdk). The room knows
+// nothing about any particular game. Nothing here trusts the browser.
 
 import { randomBytes, randomInt, timingSafeEqual } from "node:crypto";
-import {
-  SEATS,
-  applyAction,
-  botAction,
-  createGame,
-  placeholderBotAction,
-  privateTo,
-  seededRng,
-  viewFor,
-  type Action,
-  type BotLevel,
-  type GameEvent,
-  type GameState,
-  type Seat,
-} from "@games/trix";
-import { CONTINUE_SECONDS, NAME_MAX, type RoomStatus, type RoomView, type ServerMessage } from "@platform/protocol";
+import { seededRng, type GameEventBase, type GameModule, type GameStatus, type Seat } from "@platform/sdk";
+import { NAME_MAX, type RoomStatus, type RoomView, type ServerMessage } from "@platform/protocol";
 import { log } from "./log";
 
 /** One player's connection. The WebSocket in production, a fake in tests. */
@@ -38,38 +25,40 @@ interface SeatState {
   botPlaying: boolean;
   /** A bot holding a free seat: a new player coming through the invite link takes it over. */
   vacant: boolean;
-  /** Bots only: easy, medium or hard (docs/bots.md). */
-  level?: BotLevel;
+  /** Bots only: one of the game's bot levels. */
+  level?: string;
 }
 
 export interface RoomSnapshot {
   id: string;
+  /** The game this room plays and the version that saved it. Missing in saves from before the hub: Trix. */
+  gameId?: string;
+  gameVersion?: string;
   invite: string;
   owner: Seat;
   seats: (Omit<SeatState, "conn"> | null)[];
-  game: GameState | null;
+  /** The game's own state (older saves call it `game`). */
+  state?: unknown;
+  game?: unknown;
   lastActive: number;
-  /** Public events of the current contract: what the bots remember (docs/bots.md §1). */
-  contractEvents?: GameEvent[];
+  /** Public events of the current round: what the bots remember. Older saves: `contractEvents`. */
+  roundEvents?: GameEventBase[];
+  contractEvents?: GameEventBase[];
 }
 
 export const TIMING = {
-  botMoveMs: 900,
-  botPickMs: 1400,
-  /** After a trick is taken, so everyone sees what came out before the next lead. */
-  afterTrickMs: 1800,
-  continueMs: CONTINUE_SECONDS * 1000,
   /** R-TABLE-12: an owner away this long hands ownership to a connected player. */
   ownerHandoverMs: 30_000,
+  /** Tests only (TRIX_SPEED): bots, breaks and hand-overs run this many times faster. */
+  speed: 1,
 };
 
 const ALPHABET = "abcdefghjkmnpqrstuvwxyz23456789";
 export const randomId = (n: number) => Array.from({ length: n }, () => ALPHABET[randomInt(ALPHABET.length)]).join("");
 const newToken = () => randomBytes(16).toString("hex");
-/** Stand-in bots, and bots saved before levels existed, play at medium (docs/bots.md §8). */
-const STAND_IN_LEVEL: BotLevel = "medium";
-const LEVEL_NAME: Record<BotLevel, string> = { easy: "Easy bot", medium: "Medium bot", hard: "Hard bot" };
-/** Hard's thinking budget per move (docs/bots.md §1). */
+/** "hard" → "Hard bot": bots are named after their level. */
+const levelName = (level: string) => `${level[0]!.toUpperCase()}${level.slice(1)} bot`;
+/** The thinking budget for bots that imagine deals (docs/architecture.md: a shared, capped server). */
 const THINK = { samples: 40, budgetMs: 30 };
 
 /** Constant-time comparison, so response timing reveals nothing about a seat token. */
@@ -77,8 +66,6 @@ function sameToken(a: string | null, b: unknown): boolean {
   if (!a || typeof b !== "string" || a.length !== b.length) return false;
   return timingSafeEqual(Buffer.from(a), Buffer.from(b));
 }
-
-const isLevel = (v: unknown): v is BotLevel => v === "easy" || v === "medium" || v === "hard";
 
 export function cleanName(raw: unknown): string | null {
   if (typeof raw !== "string") return null;
@@ -99,8 +86,10 @@ export class Room {
   readonly id: string;
   invite = randomId(8);
   owner: Seat = 0;
-  seats: (SeatState | null)[] = [null, null, null, null];
-  game: GameState | null = null;
+  /** One entry per seat of the game (e.g. 4 for Trix). */
+  seats: (SeatState | null)[];
+  /** The game's state, opaque to the room. */
+  game: unknown = null;
   continueAt: number | null = null;
   continued = new Set<Seat>();
   ready = new Set<Seat>();
@@ -112,8 +101,8 @@ export class Room {
   /** When each human seat lost its connection (not saved: after a restart everyone counts from then). */
   private awaySince = new Map<Seat, number>();
   private continueTimer: ReturnType<typeof setTimeout> | null = null;
-  /** Public events since the current contract was dealt: the bots' memory. */
-  private contractEvents: GameEvent[] = [];
+  /** Public events since the current round started: the bots' memory. */
+  private roundEvents: GameEventBase[] = [];
   /** The bots' own randomness, separate from the deal. */
   private botRng = seededRng(randomInt(2 ** 31));
   private closed = false;
@@ -122,11 +111,23 @@ export class Room {
 
   constructor(
     id: string,
+    readonly module: GameModule,
     private readonly hooks: { onClose?: (room: Room) => void; onChange?: () => void; seed?: () => number } = {},
     restored = false,
   ) {
     this.id = id;
-    if (!restored) log("info", "room.created", { room: id });
+    this.seats = Array.from({ length: module.meta.seats.max }, () => null);
+    if (!restored) log("info", "room.created", { room: id, game: module.meta.id });
+  }
+
+  /** Every seat number of this table. */
+  get seatList(): Seat[] {
+    return this.seats.map((_, i) => i);
+  }
+
+  /** Where the game is (playing, a break between rounds, over), or null in the lobby. */
+  gameStatus(): GameStatus | null {
+    return this.game === null ? null : this.module.status(this.game);
   }
 
   // -------------------------------------------------------------------------
@@ -137,26 +138,30 @@ export class Room {
   toJSON(): RoomSnapshot {
     return {
       id: this.id,
+      gameId: this.module.meta.id,
+      gameVersion: this.module.meta.version,
       invite: this.invite,
       owner: this.owner,
       seats: this.seats.map((st) => st && { kind: st.kind, name: st.name, token: st.token, botPlaying: st.botPlaying, vacant: st.vacant, ...(st.level ? { level: st.level } : {}) }),
-      game: this.game,
+      state: this.game,
       lastActive: this.lastActive,
-      contractEvents: this.contractEvents,
+      roundEvents: this.roundEvents,
     };
   }
 
-  static fromJSON(snap: RoomSnapshot, hooks: ConstructorParameters<typeof Room>[1]): Room {
-    const room = new Room(snap.id, hooks, true);
+  /** Brings a saved room back with its game's module. Saves from before the hub (no `gameId`) are Trix. */
+  static fromJSON(snap: RoomSnapshot, module: GameModule, hooks: ConstructorParameters<typeof Room>[2]): Room {
+    const room = new Room(snap.id, module, hooks, true);
     room.invite = snap.invite;
     room.owner = snap.owner;
-    room.seats = snap.seats.map((st) => st && { ...st, conn: null, ...(st.kind === "bot" && !st.level ? { level: STAND_IN_LEVEL } : {}) });
-    room.game = snap.game;
-    room.contractEvents = snap.contractEvents ?? [];
+    // Bots saved before levels existed play at the game's stand-in level.
+    room.seats = snap.seats.map((st) => st && { ...st, conn: null, ...(st.kind === "bot" && !st.level ? { level: module.meta.standInLevel } : {}) });
+    room.game = snap.state !== undefined ? snap.state : (snap.game ?? null);
+    room.roundEvents = snap.roundEvents ?? snap.contractEvents ?? [];
     room.lastActive = snap.lastActive;
     room.lastStatus = room.status;
     const now = Date.now();
-    for (const s of SEATS) if (room.seats[s]?.kind === "human") room.awaySince.set(s, now);
+    for (const s of room.seatList) if (room.seats[s]?.kind === "human") room.awaySince.set(s, now);
     return room;
   }
 
@@ -176,22 +181,24 @@ export class Room {
   // Derived state
 
   get status(): RoomStatus {
-    if (!this.game) return "lobby";
-    if (this.game.phase === "gameOver") return "finished";
+    const st = this.gameStatus();
+    if (!st) return "lobby";
+    if (st.kind === "over") return "finished";
     return this.waitingFor().length > 0 ? "paused" : "playing";
   }
 
   /** Seats nobody is playing: empty, or a human who is away without a bot (R-TABLE-4, R-TABLE-6). */
   waitingFor(): Seat[] {
-    if (!this.game || this.game.phase === "gameOver") return [];
-    return SEATS.filter((s) => {
+    const st = this.gameStatus();
+    if (!st || st.kind === "over") return [];
+    return this.seatList.filter((s) => {
       const seat = this.seats[s];
       return !seat || (seat.kind === "human" && !seat.conn && !seat.botPlaying);
     });
   }
 
   seatOf(conn: Conn): Seat | null {
-    const s = SEATS.find((i) => this.seats[i]?.conn === conn);
+    const s = this.seatList.find((i) => this.seats[i]?.conn === conn);
     return s ?? null;
   }
 
@@ -201,7 +208,7 @@ export class Room {
   }
 
   private humans(): Seat[] {
-    return SEATS.filter((s) => this.seats[s]?.kind === "human");
+    return this.seatList.filter((s) => this.seats[s]?.kind === "human");
   }
 
   // -------------------------------------------------------------------------
@@ -214,18 +221,18 @@ export class Room {
     const creating = this.humans().length === 0 && this.seats.every((s) => s === null);
     if (!creating && invite !== this.invite) throw new RoomError("BAD_INVITE", "This invite link is no longer valid. Ask the room owner for the new one.");
     // No two people with the same name at a table, so nobody can pass for someone else.
-    const taken = SEATS.some((s) => this.seats[s] && this.seats[s]!.name.toLowerCase() === name.toLowerCase());
+    const taken = this.seatList.some((s) => this.seats[s] && this.seats[s]!.name.toLowerCase() === name.toLowerCase());
     if (taken) throw new RoomError("NAME_TAKEN", "Someone at this table already has that name. Pick another one.");
     // Free seat first; during a game a stand-in bot's seat can be taken over too.
-    let seat = SEATS.find((s) => this.seats[s] === null);
-    if (seat === undefined && this.game) seat = SEATS.find((s) => this.seats[s]?.vacant);
+    let seat = this.seatList.find((s) => this.seats[s] === null);
+    if (seat === undefined && this.game !== null) seat = this.seatList.find((s) => this.seats[s]?.vacant);
     if (seat === undefined) throw new RoomError("ROOM_FULL", "The table is full");
     const token = newToken();
     const replacing = this.seats[seat]?.kind === "bot";
     this.seats[seat] = { kind: "human", name, token, conn, botPlaying: false, vacant: false };
     this.awaySince.delete(seat);
     if (creating) this.owner = seat;
-    log("info", "seat.joined", { room: this.id, seat, name, owner: creating, replacingBot: replacing, inGame: !!this.game });
+    log("info", "seat.joined", { room: this.id, seat, name, owner: creating, replacingBot: replacing, inGame: this.game !== null });
     conn.send({ type: "joined", roomId: this.id, seat, token });
     this.changed([]);
     this.startIfFull();
@@ -234,7 +241,7 @@ export class Room {
 
   /** A returning player reclaims their seat with their token (R-TABLE-5). */
   reconnect(conn: Conn, token: unknown): Seat {
-    const seat = SEATS.find((s) => sameToken(this.seats[s]?.token ?? null, token));
+    const seat = this.seatList.find((s) => sameToken(this.seats[s]?.token ?? null, token));
     if (seat === undefined) throw new RoomError("BAD_TOKEN", "That seat is no longer yours");
     const st = this.seats[seat]!;
     log("info", "seat.reconnected", { room: this.id, seat, replacedOpenConnection: !!st.conn && st.conn !== conn, wasBotPlaying: st.botPlaying });
@@ -256,7 +263,7 @@ export class Room {
     if (seat === null) return;
     this.seats[seat]!.conn = null;
     this.awaySince.set(seat, Date.now());
-    log("info", "seat.disconnected", { room: this.id, seat, phase: this.game?.phase ?? "lobby", owner: seat === this.owner });
+    log("info", "seat.disconnected", { room: this.id, seat, stage: this.gameStatus()?.kind ?? "lobby", owner: seat === this.owner });
     this.changed([]); // pauses the game if it needs this player (R-TABLE-4)
     if (this.humans().every((s) => !this.seats[s]!.conn)) this.lastActive = Date.now();
   }
@@ -266,7 +273,7 @@ export class Room {
     const st = this.seats[seat];
     if (!st) return;
     this.seats[seat] = null;
-    log("info", "seat.vacated", { room: this.id, seat, reason, kind: st.kind, phase: this.game?.phase ?? "lobby" });
+    log("info", "seat.vacated", { room: this.id, seat, reason, kind: st.kind, stage: this.gameStatus()?.kind ?? "lobby" });
     this.continued.delete(seat);
     this.ready.delete(seat);
     if (st.conn) {
@@ -311,11 +318,11 @@ export class Room {
     const next = this.nextOwner();
     if (next === undefined) return; // nobody to hand over to: check again when someone connects
     const away = Date.now() - (this.awaySince.get(this.owner) ?? Date.now());
-    if (away >= TIMING.ownerHandoverMs) {
+    if (away >= TIMING.ownerHandoverMs / TIMING.speed) {
       this.setOwner(next, "away");
       return;
     }
-    if (!this.frozen && !this.closed) this.ownerTimer = setTimeout(() => this.changed([]), TIMING.ownerHandoverMs - away);
+    if (!this.frozen && !this.closed) this.ownerTimer = setTimeout(() => this.changed([]), TIMING.ownerHandoverMs / TIMING.speed - away);
   }
 
   close(): void {
@@ -325,7 +332,7 @@ export class Room {
     if (this.ownerTimer) clearTimeout(this.ownerTimer);
     log("info", "room.closed", { room: this.id });
     this.hooks.onChange?.();
-    for (const s of SEATS) {
+    for (const s of this.seatList) {
       const conn = this.seats[s]?.conn;
       if (conn) {
         conn.send({ type: "removed", reason: "roomClosed" });
@@ -353,10 +360,10 @@ export class Room {
 
     switch (msg.type) {
       case "action": {
-        if (!this.game || this.status !== "playing") throw new RoomError("NOT_PLAYING", "The game is not running right now");
-        const r = applyAction(this.game, seat, msg.action);
+        if (this.game === null || this.status !== "playing") throw new RoomError("NOT_PLAYING", "The game is not running right now");
+        const r = this.module.apply(this.game, seat, msg.action);
         if (!r.ok) {
-          log("info", "action.rejected", { room: this.id, seat, code: r.error.code, action: msg.action, phase: this.game.phase, turn: this.game.turn });
+          log("info", "action.rejected", { room: this.id, seat, code: r.error.code, action: msg.action, actors: this.module.actors(this.game) });
           throw new RoomError(r.error.code, r.error.message);
         }
         log("debug", "action.accepted", { room: this.id, seat, action: msg.action });
@@ -365,7 +372,7 @@ export class Room {
         return;
       }
       case "continue":
-        if (this.game?.phase !== "contractEnd") return;
+        if (this.gameStatus()?.kind !== "break") return;
         this.continued.add(seat);
         this.changed([]);
         return;
@@ -381,10 +388,10 @@ export class Room {
       case "addBot": {
         ownerOnly();
         const s = targetSeat();
-        if (this.game) throw new RoomError("NOT_IN_LOBBY", "Bots can be added before the game starts");
+        if (this.game !== null) throw new RoomError("NOT_IN_LOBBY", "Bots can be added before the game starts");
         if (this.seats[s]) throw new RoomError("SEAT_TAKEN", "That seat is taken");
-        const level = msg.level === undefined ? STAND_IN_LEVEL : msg.level;
-        if (!isLevel(level)) throw new RoomError("BAD_MESSAGE", "Unknown bot level");
+        const level = msg.level === undefined ? this.module.meta.standInLevel : msg.level;
+        if (typeof level !== "string" || !this.module.meta.botLevels.includes(level)) throw new RoomError("BAD_MESSAGE", "Unknown bot level");
         this.seatBot(s, level);
         this.changed([]);
         this.startIfFull();
@@ -412,7 +419,7 @@ export class Room {
         for (const s of this.waitingFor()) {
           const st = this.seats[s];
           if (st) st.botPlaying = true;
-          else this.seatBot(s, STAND_IN_LEVEL);
+          else this.seatBot(s, this.module.meta.standInLevel);
           log("info", "seat.botStandIn", { room: this.id, seat: s, forPlayer: st?.name ?? null });
         }
         this.changed([]);
@@ -425,7 +432,7 @@ export class Room {
         return;
       case "startGame":
         ownerOnly();
-        if (this.game) return;
+        if (this.game !== null) return;
         if (this.seats.some((s) => !s)) throw new RoomError("NOT_FULL", "All 4 seats must be filled");
         this.startGame();
         return;
@@ -435,17 +442,17 @@ export class Room {
   }
 
   /** "Play against bots" (R-TABLE-13): every empty seat gets a bot of this level, and the game starts. */
-  fillWithBots(level: BotLevel): void {
-    for (const s of SEATS) if (!this.seats[s]) this.seatBot(s, level);
+  fillWithBots(level: string): void {
+    for (const s of this.seatList) if (!this.seats[s]) this.seatBot(s, level);
     this.changed([]);
     this.startIfFull();
   }
 
   /** A bot in an empty seat, named after its level ("Hard bot", "Hard bot 2", …). */
-  private seatBot(seat: Seat, level: BotLevel): void {
-    const taken = (n: string) => SEATS.some((i) => this.seats[i]?.name.toLowerCase() === n.toLowerCase());
-    let name = LEVEL_NAME[level];
-    for (let n = 2; taken(name); n++) name = `${LEVEL_NAME[level]} ${n}`;
+  private seatBot(seat: Seat, level: string): void {
+    const taken = (n: string) => this.seatList.some((i) => this.seats[i]?.name.toLowerCase() === n.toLowerCase());
+    let name = levelName(level);
+    for (let n = 2; taken(name); n++) name = `${levelName(level)} ${n}`;
     this.seats[seat] = { kind: "bot", name, token: null, conn: null, botPlaying: false, vacant: true, level };
     log("info", "seat.botAdded", { room: this.id, seat, level });
   }
@@ -453,17 +460,17 @@ export class Room {
   // -------------------------------------------------------------------------
   // Game flow
 
-  /** R-TABLE-3: the game starts on its own when the 4th seat is filled. */
+  /** R-TABLE-3: the game starts on its own when the last seat is filled. */
   private startIfFull(): void {
-    if (!this.game && this.seats.every((s) => s !== null)) this.startGame();
+    if (this.game === null && this.seats.every((s) => s !== null)) this.startGame();
   }
 
   private startGame(): void {
     const seed = this.hooks.seed ? this.hooks.seed() : randomInt(2 ** 31);
-    this.game = createGame({ seed });
-    log("info", "game.started", { room: this.id, seed, firstPicker: this.game.picker, seats: this.seats.map((s) => s && { kind: s.kind, name: s.name }) });
+    this.game = this.module.create({ seed, seats: this.seats.length });
+    log("info", "game.started", { room: this.id, game: this.module.meta.id, version: this.module.meta.version, seed, seats: this.seats.map((s) => s && { kind: s.kind, name: s.name, level: s.level }) });
     this.resetBetweenGames();
-    this.changed([{ type: "dealt", contractNo: 1, picker: this.game.picker }]);
+    this.changed(this.module.started(this.game));
   }
 
   private resetBetweenGames(): void {
@@ -476,13 +483,14 @@ export class Room {
   /** R-TABLE-8: a new game with the same seats once everyone is ready (bots always are). */
   private restartIfAllReady(): void {
     if (this.status !== "finished") return;
-    if (SEATS.every((s) => this.seats[s] && (this.ready.has(s) || this.isBotControlled(s)))) this.startGame();
+    if (this.seatList.every((s) => this.seats[s] && (this.ready.has(s) || this.isBotControlled(s)))) this.startGame();
   }
 
-  /** Between contracts: deal when every human is ready, or when the countdown ends. */
-  private nextContract(): void {
-    if (!this.game || this.game.phase !== "contractEnd" || this.status !== "playing") return;
-    const r = applyAction(this.game, "system", { type: "nextContract" });
+  /** Between rounds: start the next one when every human is ready, or when the countdown ends. */
+  private nextRound(): void {
+    const st = this.gameStatus();
+    if (!st || st.kind !== "break" || this.status !== "playing") return;
+    const r = this.module.apply(this.game, "system", st.next);
     if (!r.ok) return;
     this.game = r.state;
     this.continueAt = null;
@@ -491,20 +499,17 @@ export class Room {
   }
 
   /** Called after every change: send everyone their view, then schedule whatever happens next. */
-  private changed(events: GameEvent[]): void {
+  private changed(events: GameEventBase[]): void {
     if (this.closed) return;
-    // Start the between-contracts countdown before telling anyone, so they all see it.
-    if (this.game?.phase === "contractEnd" && this.continueAt === null) this.continueAt = Date.now() + TIMING.continueMs;
+    // Start the between-rounds countdown before telling anyone, so they all see it.
+    const st = this.gameStatus();
+    if (st?.kind === "break" && this.continueAt === null) this.continueAt = Date.now() + (st.seconds * 1000) / TIMING.speed;
     this.checkOwner(); // before telling anyone, so everyone sees the current owner
     for (const e of events) {
-      if (e.type === "dealt") this.contractEvents = [];
-      else if (privateTo(e) === null) this.contractEvents.push(e);
-      if (e.type === "contractScored") {
-        const r = e.result;
-        log("info", "contract.scored", { room: this.id, contractNo: r.contractNo, contract: r.contract, picker: r.picker, raw: r.raw, scores: r.scores, totals: r.totals, resets: r.resetToZero });
-      } else if (e.type === "gameOver") {
-        log("info", "game.over", { room: this.id, reason: e.standings.reason, totals: e.standings.totals, losers: e.standings.losers });
-      }
+      if (this.module.isRoundStart(e)) this.roundEvents = [];
+      else if (this.module.privateTo(e) === null) this.roundEvents.push(e);
+      const line = this.module.logLine?.(e);
+      if (line) log("info", line.event, { room: this.id, ...line.fields });
     }
     const status = this.status;
     if (status !== this.lastStatus) {
@@ -516,46 +521,47 @@ export class Room {
     if (!this.frozen) this.schedule(events);
   }
 
-  private schedule(events: GameEvent[]): void {
+  private schedule(events: GameEventBase[]): void {
     this.clearTimers();
     const game = this.game;
-    if (!game) return;
+    const st = this.gameStatus();
+    if (game === null || !st) return;
     if (this.status === "finished") return this.restartIfAllReady();
     if (this.status !== "playing") return;
 
-    if (game.phase === "contractEnd") {
-      const humansReady = SEATS.every((s) => this.isBotControlled(s) || this.continued.has(s));
+    if (st.kind === "break") {
+      const humansReady = this.seatList.every((s) => this.isBotControlled(s) || this.continued.has(s));
       const at = this.continueAt ?? Date.now();
-      if (humansReady || Date.now() >= at) return this.nextContract();
-      this.continueTimer = setTimeout(() => this.nextContract(), at - Date.now());
+      if (humansReady || Date.now() >= at) return this.nextRound();
+      this.continueTimer = setTimeout(() => this.nextRound(), at - Date.now());
       return;
     }
 
-    const actor = game.turn;
-    if (actor === null || !this.isBotControlled(actor)) return;
-    const delay =
-      game.phase === "picking" ? TIMING.botPickMs : events.some((e) => e.type === "trickWon") ? TIMING.afterTrickMs : TIMING.botMoveMs;
+    // One bot at a time; the next one is scheduled after its move.
+    const actor = this.module.actors(game).find((s) => this.isBotControlled(s));
+    if (actor === undefined) return;
+    const delay = this.module.pace(game, events) / TIMING.speed;
     this.botTimer = setTimeout(() => this.botMove(actor), delay);
   }
 
   private botMove(seat: Seat): void {
-    if (!this.game || this.status !== "playing" || this.game.turn !== seat || !this.isBotControlled(seat)) return;
+    if (this.game === null || this.status !== "playing" || !this.module.actors(this.game).includes(seat) || !this.isBotControlled(seat)) return;
     const st = this.seats[seat]!;
-    const level = st.kind === "bot" ? (st.level ?? STAND_IN_LEVEL) : STAND_IN_LEVEL;
-    // The bot sees what a player in its seat sees: its view and the public events (docs/bots.md §1).
-    let action: Action | null = null;
+    const level = st.kind === "bot" ? (st.level ?? this.module.meta.standInLevel) : this.module.meta.standInLevel;
+    // The bot sees what a player in its seat sees: its view and the round's public events.
+    let action: unknown = null;
     try {
-      action = botAction(level, viewFor(this.game, seat), this.contractEvents, this.botRng, THINK);
+      action = this.module.bot(level, this.module.view(this.game, seat), this.roundEvents, this.botRng, THINK);
     } catch (e) {
       log("error", "bot.crashed", { room: this.id, seat, level, error: e });
     }
-    let r = action ? applyAction(this.game, seat, action) : null;
+    let r = action !== null ? this.module.apply(this.game, seat, action) : null;
     if (!r?.ok) {
       // Never let a bot problem stall the table: log it and make a simple legal move instead.
       if (r && !r.ok) log("error", "bot.illegalMove", { room: this.id, seat, level, action, code: r.error.code });
-      action = placeholderBotAction(this.game, seat);
-      if (!action) return;
-      r = applyAction(this.game, seat, action);
+      action = this.module.fallback(this.game, seat);
+      if (action === null) return;
+      r = this.module.apply(this.game, seat, action);
       if (!r.ok) return;
     }
     log("debug", "bot.move", { room: this.id, seat, level, action });
@@ -575,13 +581,15 @@ export class Room {
   viewFor(seat: Seat): RoomView {
     return {
       id: this.id,
+      game: this.module.meta.id,
+      gameVersion: this.module.meta.version,
       status: this.status,
       you: seat,
       owner: this.owner,
-      seats: SEATS.map((s) => {
+      seats: this.seatList.map((s) => {
         const st = this.seats[s];
         if (!st) return { kind: "empty", name: null, connected: false, botPlaying: false, level: null };
-        return { kind: st.kind, name: st.name, connected: st.kind === "bot" || !!st.conn, botPlaying: st.botPlaying, level: st.kind === "bot" ? (st.level ?? STAND_IN_LEVEL) : null };
+        return { kind: st.kind, name: st.name, connected: st.kind === "bot" || !!st.conn, botPlaying: st.botPlaying, level: st.kind === "bot" ? (st.level ?? this.module.meta.standInLevel) : null };
       }),
       invitePath: seat === this.owner ? `/r/${this.id}?i=${this.invite}` : null,
       waitingFor: this.waitingFor(),
@@ -591,16 +599,16 @@ export class Room {
     };
   }
 
-  private broadcast(events: GameEvent[]): void {
-    for (const s of SEATS) {
+  private broadcast(events: GameEventBase[]): void {
+    for (const s of this.seatList) {
       const conn = this.seats[s]?.conn;
       if (!conn) continue;
       conn.send({
         type: "update",
         room: this.viewFor(s),
-        game: this.game ? viewFor(this.game, s) : null,
+        game: this.game !== null ? this.module.view(this.game, s) : null,
         events: events.filter((e) => {
-          const only = privateTo(e);
+          const only = this.module.privateTo(e);
           return only === null || only === s;
         }),
       });

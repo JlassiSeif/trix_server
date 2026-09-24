@@ -1,6 +1,6 @@
 {
-  "name": "@platform/protocol",
-  "version": "0.0.0",
+  "name": "@platform/sdk",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
   "exports": {
@@ -8,5 +8,6 @@
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json"
-  }
+  },
+  "sideEffects": false
 }

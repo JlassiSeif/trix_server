@@ -11,9 +11,10 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@games/trix": "0.0.0",
-    "@platform/protocol": "^0.0.0",
-    "ws": "8.21.3"
+    "@games/trix": "*",
+    "@platform/protocol": "*",
+    "ws": "8.21.3",
+    "@platform/sdk": "*"
   },
   "devDependencies": {
     "@types/ws": "8.18.1",

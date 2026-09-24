@@ -1,0 +1,67 @@
+/* The hub: home page, game pages, lobby. */
+/* ---------- Entry and lobby ---------- */
+.entry, .lobby {
+  min-height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 1rem; padding: 2rem 1rem; color: var(--paper); text-align: center;
+  background: radial-gradient(ellipse at center, var(--felt) 0%, var(--felt-dark) 75%);
+}
+.entry h1, .lobby h1 { font-size: 3rem; margin: 0; letter-spacing: 0.05em; }
+.tagline { margin: 0; opacity: 0.85; }
+.entry form { display: flex; flex-direction: column; gap: 0.5rem; width: min(320px, 100%); text-align: left; }
+.lobby section { width: min(640px, 100%); }
+.lobby h2 { font-size: 1rem; margin: 0 0 0.4rem; opacity: 0.85; }
+.lobby-seats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0.7rem; }
+.lobby-seat {
+  background: rgba(0,0,0,0.25); border-radius: 12px; padding: 0.9rem; display: flex; flex-direction: column; gap: 0.35rem;
+  align-items: center; border: 2px dashed rgba(255,255,255,0.2);
+}
+.lobby-seat.human, .lobby-seat.bot { border-style: solid; border-color: rgba(242,193,78,0.5); }
+.seat-no { font-size: 0.75rem; opacity: 0.6; }
+.entry .hint { margin: 0; color: #b8c9c0; }
+.solo { width: min(520px, 100%); display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.6rem; }
+.solo h2, .bot-level h2 { font-size: 1rem; margin: 0; opacity: 0.85; }
+.solo-levels { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; }
+.solo-level { display: flex; flex-direction: column; gap: 0.2rem; align-items: center; background: rgba(0,0,0,0.28); color: var(--paper); border: 2px solid rgba(242,193,78,0.45); padding: 0.6rem 0.4rem; }
+.solo-level strong { font-size: 1.05rem; color: var(--gold); }
+.solo-level .small { opacity: 0.85; font-weight: 400; }
+.bot-level { display: flex; flex-direction: column; gap: 0.4rem; align-items: center; }
+.levels { display: inline-flex; gap: 0.3rem; background: rgba(0,0,0,0.25); padding: 0.25rem; border-radius: 10px; }
+.levels button { padding: 0.4rem 0.9rem; }
+.levels button.secondary { background: transparent; color: var(--paper); }
+
+@media (max-width: 600px) {
+  .solo-levels { grid-template-columns: 1fr; }
+  .solo-level { flex-direction: row; justify-content: space-between; padding: 0.55rem 0.8rem; text-align: right; }
+  .entry, .lobby { justify-content: flex-start; padding-top: 2.5rem; }
+  .entry h1, .lobby h1 { font-size: 2.4rem; }
+}
+
+/* The home page: pick a game. */
+.home {
+  min-height: 100%; display: flex; flex-direction: column; align-items: center; gap: 1.4rem;
+  padding: 3rem 1rem 2rem; color: var(--paper);
+  background: radial-gradient(ellipse at 50% 20%, var(--felt) 0%, var(--felt-dark) 70%);
+}
+.home header { text-align: center; display: flex; flex-direction: column; gap: 0.5rem; }
+.home h1 { font-size: 2.8rem; margin: 0; letter-spacing: 0.03em; }
+.games { width: min(860px, 100%); display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 0.8rem; align-items: start; }
+.game-tile {
+  display: flex; flex-direction: column; gap: 0.35rem; padding: 1rem; border-radius: 14px; text-decoration: none;
+  color: var(--paper); background: rgba(0,0,0,0.3); border: 2px solid rgba(242,193,78,0.55);
+}
+.game-tile strong { font-size: 1.35rem; color: var(--gold); }
+a.game-tile:hover, a.game-tile:focus-visible { background: rgba(0,0,0,0.42); outline: none; border-color: var(--gold); }
+.game-tile.soon { border-style: dashed; border-color: rgba(255,255,255,0.18); background: rgba(0,0,0,0.15); }
+.game-tile.soon strong { color: var(--paper); opacity: 0.75; font-size: 1.1rem; }
+.game-tile.closed { opacity: 0.6; cursor: default; }
+.muted-light { color: #b8c9c0; }
+.crumbs { align-self: flex-start; width: min(520px, 100%); margin: 0 auto; }
+.crumbs a { color: #b8c9c0; text-decoration: none; font-size: 0.9rem; }
+.crumbs a:hover { color: var(--paper); }
+
+@media (max-width: 600px) {
+  .home { padding-top: 2rem; }
+  .home h1 { font-size: 2.2rem; }
+  .games { grid-template-columns: 1fr 1fr; }
+  .game-tile { padding: 0.8rem; }
+}
