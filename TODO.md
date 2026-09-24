@@ -16,11 +16,11 @@ Play Trix online with friends: a web app hosted on Seif's free Oracle Cloud mach
 3. **`docs/client-baseline.md`:** Seif was going to mark the behaviour he wants from the old client. v0.5 has since replaced it as the working spec. Seif decides whether to drop this item.
 4. **Later: our own card designs.** The cards are GNOME Aisleriot's "bonded" theme (GPL-3.0-or-later; the notice is in the README) and stay until we have our own.
 
-## Friends' feedback (2026-09-24): proposals, nothing decided yet
-- **Bot personalities** on top of the levels: a wise old man, a risky player, a dumb player, a cunning player, a trash-talker, one that roasts you.
-- **Audio:** meme sounds on big moments (winning, taking the K♥, the loser at the end), Tunisian songs in the background.
-- **A hub for Tunisian games:** chkobba, rami, bent walad, loup garou, dominos, tehchi fih, Uno, Monopoly, jhayech, Pablo, the goose game. Each game gets its own rules walkthrough with Seif first, as Trix did.
-- **Monetization:** Seif asked how. Claude's analysis is in the 2026-09-24 conversation; waiting for Seif's decisions.
+## Next (Seif, 2026-09-24): the hub, personas, sounds
+1. **Hub:** the site becomes a home for Tunisian games; each game has its own page with create table, play against bots and invite links. Trix is the first game; the others get added one by one, each with a rules walkthrough with Seif first.
+2. **Personas for Trix:** Jeddi (sweet grandpa), Je7ch (the donkey), Chmeyti (playful opportunist), Waben (funny asshole), with chat bubbles. Spec draft `docs/personas.md`, waiting for Seif's approval. Lines from Seif and friends in `docs/persona-lines.csv`.
+3. **Sounds, music, settings:** list and formats in `docs/sounds.md`; Seif provides the audio. Settings: music, sounds, memes, chat, and 18+ mode, which is off by default.
+4. **Later:** the other games (chkobba, rami, bent walad, loup garou, dominos, tehchi fih, an Uno-style game, a Monopoly-style game, jhayech, Pablo, the goose game); monetization (see the 2026-09-24 conversation).
 
 ## Done
 - **M0 Housekeeping:** one repo at `~/trix`; the old C++ server and SDL client live in `archive/` as reference only; the Heroku remote and `.vscode/` are dropped. Baseline commit `7aab93e`.
