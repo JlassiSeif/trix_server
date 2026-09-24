@@ -37,6 +37,7 @@ Seif owns this project. He's the product owner and the source of the rules; Clau
 - A Done entry says what was done, when (absolute date), and how it was verified, with real numbers ("station 31/31, browser flows 17/17"). Replace the "Last full check" line rather than stacking new ones.
 - Record Seif's decisions with the date and his words ("Seif, 2026-09-24"). Anything he hasn't decided stays under Open, phrased as a question for him.
 - Commit TODO changes on their own, with the attribution line from the system prompt.
+- **Push after committing** (`git push origin master`, and `git push origin <tag>` for new release tags): GitHub (`JlassiSeif/trix_server`) is the off-machine copy. This repo pushes with its own key, `~/.ssh/trix_github` (set in `git config core.sshCommand`).
 
 ## 4. Repo map
 | Where | What |
