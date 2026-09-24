@@ -26,15 +26,17 @@ End-to-end: run a built server with fast bots (`TRIX_SPEED=10 PORT=8123 npm star
 
 Bug hunt: `npm run station` plays hundreds of games over the real protocol with simulated players (normal play, stress, disconnects, hostile input), checks every move with an independent referee, and writes a report to `.station-runs/`. See [docs/testing-station.md](docs/testing-station.md).
 
+Bots: three levels (easy, medium, hard), specified in [docs/bots.md](docs/bots.md). `npm run arena` plays thousands of games inside the engine to check that each level beats the one below and that hard thinks within its budget; the last results are in [docs/bots-arena.md](docs/bots-arena.md).
+
 Server logs are JSON lines (`TRIX_LOG_LEVEL=debug|info|warn|error`); `/api/stats` shows rooms, sockets and memory.
 
-Connection flows in real browsers (friends joining, network drops, closed tabs, full table, kicks, two tabs, server restarts): `npm run build && node apps/web/e2e/connections.mjs`.
+Connection flows in real browsers (friends joining, network drops, closed tabs, full table, kicks, two tabs, server restarts, playing against bots): `npm run build && node apps/web/e2e/connections.mjs`. Phone-size play-through: `node apps/web/e2e/play-vs-bots.mjs OUT --base URL --viewport 390x844`.
 
 Deploying: [docs/deploy.md](docs/deploy.md) (`deploy/deploy.sh`) and [docs/predeploy-check.md](docs/predeploy-check.md).
 
 ## Layout
 
-- `packages/engine`: the rules (a pure state machine), tested against the rule IDs in RULES.md
+- `packages/engine`: the rules (a pure state machine), tested against the rule IDs in RULES.md; `src/bots` holds the bots
 - `packages/protocol`: messages between browser and server
 - `apps/server`: Node + WebSocket; rooms, seats, bots, timers
 - `tools/station`: the testing station (simulated players, referee, scenarios, mutation check)

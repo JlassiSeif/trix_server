@@ -41,7 +41,7 @@ Bots and countdowns run 20 times faster than normal (`--speed`).
 
 **Unexpected errors:** every message carries an `id`, and an error names the message that caused it (`re`). A legal move that gets refused is flagged, unless the table changed while it was on its way.
 
-**Testing the tester** (`tools/station/src/mutants.ts`) builds the real server with a deliberate bug and checks that the station flags it. Last run, 7 out of 7 were caught:
+**Testing the tester** (`tools/station/src/mutants.ts`) builds the real server with a deliberate bug and checks that the station flags it. Last run (2026-09-24), 8 out of 8 were caught:
 
 | Deliberate bug | Caught by |
 |---|---|
@@ -52,6 +52,7 @@ Bots and countdowns run 20 times faster than normal (`--speed`).
 | trix: a 10 fits right after the jack | trix-placement, card-conservation |
 | the view shows the next player's hand | privacy-hand, hand-count, and others |
 | the look at the last trick goes to everyone | privacy-peek |
+| trix never due (no R-GAME-11) | trix-overdue |
 
 ## Scenarios
 
@@ -76,6 +77,10 @@ Bots and countdowns run 20 times faster than normal (`--speed`).
 | S20 | permissions | Refused joins and owner-only actions | 11 requests, each refused with the right code |
 | S21 | permissions | Looking at the last trick | Exactly 2 per contract; only the looker sees it |
 | S23 | permissions | End game, kick, add bot, restart | Back to the lobby; the full table starts again on its own |
+| S24 | connections | The server restarts during three games | Everyone comes back to the same contract and cards; all three games finish |
+| S25 | normal flow | 1 player vs an easy, a medium and a hard bot | Every bot move passes the referee; seats show the levels; the game finishes |
+
+Server bots added by the other scenarios rotate through hard, medium and easy, so every level is refereed. Bot *strength* is measured separately, by the arena (`npm run arena`, [bots-arena.md](bots-arena.md)).
 
 ## Findings (2026-09-23)
 
