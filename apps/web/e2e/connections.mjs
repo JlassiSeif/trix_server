@@ -25,7 +25,7 @@ let serverPort = 0;
 const serverLog = [];
 async function startServer() {
   const proc = spawn(process.execPath, [join(root, "apps/server/dist/index.js")], {
-    env: { ...process.env, PORT: String(serverPort || 0), TRIX_SPEED: "10", TRIX_LOG_LEVEL: "info", TRIX_STATE_FILE: stateFile },
+    env: { ...process.env, PORT: String(serverPort || 0), TRIX_SPEED: "10", TRIX_LOG_LEVEL: "info", TRIX_STATE_FILE: stateFile, TRIX_TRUST_PROXY: "1" },
     stdio: ["ignore", "pipe", "pipe"],
   });
   server = proc;
@@ -90,8 +90,15 @@ function makeProxy() {
 // ---------------------------------------------------------------- browser helpers
 const browser = await chromium.launch({ executablePath: process.env.CHROMIUM || undefined });
 const pageErrors = [];
+// Every browser gets its own address, as real friends do: the server's per-address limits
+// (5 tables, 20 connections, the join lockout) would otherwise add up across all cases.
+let players = 0;
 async function newPlayer(label, port = serverPort) {
-  const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+  const n = ++players;
+  const ctx = await browser.newContext({
+    viewport: { width: 1280, height: 800 },
+    extraHTTPHeaders: { "x-forwarded-for": `10.0.${n >> 8}.${n & 255}` },
+  });
   const page = await ctx.newPage();
   page.on("pageerror", (e) => pageErrors.push(`${label}: ${e.message}`));
   page.base = `http://127.0.0.1:${port}`;
