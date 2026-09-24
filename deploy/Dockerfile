@@ -6,21 +6,21 @@
 FROM node:24.21.0-alpine3.24@sha256:ebfe2f90462722a7a4de65e91990e97fe0d401c70e0e762c5b53302f905ec1c1 AS build
 WORKDIR /src
 COPY package.json package-lock.json ./
-COPY packages/engine/package.json packages/engine/
-COPY packages/protocol/package.json packages/protocol/
-COPY apps/server/package.json apps/server/
-COPY apps/web/package.json apps/web/
-COPY tools/station/package.json tools/station/
+COPY games/trix/engine/package.json games/trix/engine/
+COPY platform/protocol/package.json platform/protocol/
+COPY platform/server/package.json platform/server/
+COPY platform/web/package.json platform/web/
+COPY games/trix/station/package.json games/trix/station/
 RUN npm ci --no-audit --no-fund
 COPY tsconfig.base.json ./
-COPY packages packages
-COPY apps apps
+COPY platform platform
+COPY games games
 RUN npm run build
 
 FROM node:24.21.0-alpine3.24@sha256:ebfe2f90462722a7a4de65e91990e97fe0d401c70e0e762c5b53302f905ec1c1
 WORKDIR /app
-COPY --from=build /src/apps/server/dist/index.js server/index.js
-COPY --from=build /src/apps/web/dist web
+COPY --from=build /src/platform/server/dist/index.js server/index.js
+COPY --from=build /src/platform/web/dist web
 ENV NODE_ENV=production HOST=0.0.0.0 PORT=8080 WEB_DIST=/app/web
 # Only reachable over the `edge` Docker network; never published on the host.
 EXPOSE 8080

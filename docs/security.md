@@ -11,8 +11,8 @@
 **How it was checked:**
 - the code review below;
 - the testing station's attack scenarios (`npm run station -- --only X01,…,X10`), all passing;
-- the security tests in `apps/server/test`;
-- the browser tests in `apps/web/e2e/connections.mjs`;
+- the security tests in `platform/server/test`;
+- the browser tests in `platform/web/e2e/connections.mjs`;
 - `npm audit`.
 
 ## Threats and protections

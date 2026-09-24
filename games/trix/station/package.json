@@ -1,0 +1,14 @@
+{
+  "name": "@games/trix-station",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@games/trix": "0.0.0",
+    "@platform/protocol": "0.0.0",
+    "ws": "8.21.3"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json"
+  }
+}

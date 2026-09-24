@@ -47,8 +47,8 @@ platform/
 games/
   trix/
     README.md  RULES.md  TODO.md  CHANGELOG.md  package.json (its version)
-    engine/    rules and bots          (today: packages/engine)
-    ui/        the table screens       (today: apps/web/src/screens/Table.tsx and friends)
+    engine/    rules and bots          (today: games/trix/engine)
+    ui/        the table screens       (today: platform/web/src/screens/Table.tsx and friends)
     station/   Trix's referee and scenarios
     docs/      bots.md, personas.md, arena results …
 docs/          platform docs: architecture, security, deploy

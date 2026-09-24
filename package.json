@@ -1,25 +1,24 @@
 {
-  "name": "trix",
+  "name": "tunisian-games-hub",
   "private": true,
   "type": "module",
   "workspaces": [
-    "packages/*",
-    "apps/*",
-    "tools/*"
+    "platform/*",
+    "games/*/*"
   ],
   "engines": {
     "node": ">=22.12"
   },
   "scripts": {
-    "dev": "concurrently -k -n server,web -c blue,magenta \"npm run dev -w @trix/server\" \"npm run dev -w @trix/web\"",
-    "build": "npm run build -w @trix/web && npm run build -w @trix/server",
-    "start": "npm run start -w @trix/server",
+    "dev": "concurrently -k -n server,web -c blue,magenta \"npm run dev -w @platform/server\" \"npm run dev -w @platform/web\"",
+    "build": "npm run build -w @platform/web && npm run build -w @platform/server",
+    "start": "npm run start -w @platform/server",
     "test": "npm run test --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
-    "e2e": "node apps/web/e2e/play-vs-bots.mjs e2e-out",
-    "e2e:timed": "node apps/web/e2e/timed-ui.mjs",
-    "station": "npm run build && tsx tools/station/src/main.ts",
-    "arena": "tsx tools/station/src/arena.ts"
+    "e2e": "node platform/web/e2e/play-vs-bots.mjs e2e-out",
+    "e2e:timed": "node platform/web/e2e/timed-ui.mjs",
+    "station": "npm run build && tsx games/trix/station/src/main.ts",
+    "arena": "tsx games/trix/station/src/arena.ts"
   },
   "devDependencies": {
     "@types/node": "26.6.2",

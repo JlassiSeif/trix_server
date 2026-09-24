@@ -30,17 +30,17 @@ Bots: three levels (easy, medium, hard), specified in [docs/bots.md](docs/bots.m
 
 Server logs are JSON lines (`TRIX_LOG_LEVEL=debug|info|warn|error`); `/api/stats` shows rooms, sockets and memory.
 
-Connection flows in real browsers (friends joining, network drops, closed tabs, full table, kicks, two tabs, server restarts, playing against bots): `npm run build && node apps/web/e2e/connections.mjs`. Phone-size play-through: `node apps/web/e2e/play-vs-bots.mjs OUT --base URL --viewport 390x844`.
+Connection flows in real browsers (friends joining, network drops, closed tabs, full table, kicks, two tabs, server restarts, playing against bots): `npm run build && node platform/web/e2e/connections.mjs`. Phone-size play-through: `node platform/web/e2e/play-vs-bots.mjs OUT --base URL --viewport 390x844`.
 
 Deploying: [docs/deploy.md](docs/deploy.md) (`deploy/deploy.sh`) and [docs/predeploy-check.md](docs/predeploy-check.md).
 
 ## Layout
 
-- `packages/engine`: the rules (a pure state machine), tested against the rule IDs in RULES.md; `src/bots` holds the bots
-- `packages/protocol`: messages between browser and server
-- `apps/server`: Node + WebSocket; rooms, seats, bots, timers
-- `tools/station`: the testing station (simulated players, referee, scenarios, mutation check)
-- `apps/web`: React + Vite client. Cards and contract icons come from the old client's assets.
+- `games/trix/engine`: the rules (a pure state machine), tested against the rule IDs in RULES.md; `src/bots` holds the bots
+- `platform/protocol`: messages between browser and server
+- `platform/server`: Node + WebSocket; rooms, seats, bots, timers
+- `games/trix/station`: the testing station (simulated players, referee, scenarios, mutation check)
+- `platform/web`: React + Vite client. Cards and contract icons come from the old client's assets.
 - `archive/`: the 2023 C++ server, SDL client and prototype (reference only)
 
 Card images: GNOME Aisleriot "bonded" theme (GPL-3.0-or-later), taken from the old client's assets.

@@ -1,6 +1,6 @@
 # Pre-deployment check (2026-09-23)
 
-**Verdict: ready to deploy from the software side.** The remaining steps need the machine and the domain (see `docs/deploy.md`, "What I need from Seif"). Everything below was run on the exact build that would be deployed: a self-contained `apps/server/dist/index.js` plus `apps/web/dist`.
+**Verdict: ready to deploy from the software side.** The remaining steps need the machine and the domain (see `docs/deploy.md`, "What I need from Seif"). Everything below was run on the exact build that would be deployed: a self-contained `platform/server/dist/index.js` plus `platform/web/dist`.
 
 ## Your questions
 
