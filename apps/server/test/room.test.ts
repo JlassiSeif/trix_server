@@ -401,3 +401,29 @@ describe("no impersonation at a table", () => {
     }
   });
 });
+
+describe("tables per address", () => {
+  it("refuses a 6th table while the address is at its 5, but an abandoned one makes way (oldest first)", () => {
+    hub = new Hub({ seed: () => 12345, maxRoomsPerIp: 5 });
+    const conns: FakeConn[] = [];
+    for (let i = 0; i < 5; i++) {
+      const c = Object.assign(new FakeConn(), { ip: "203.0.113.5" });
+      send(c, { type: "createRoom", name: `p${i}` });
+      conns.push(c);
+      vi.advanceTimersByTime(1000);
+    }
+    const extra = Object.assign(new FakeConn(), { ip: "203.0.113.5" });
+    send(extra, { type: "createRoom", name: "more" });
+    expect(extra.errors()).toEqual(["TOO_MANY_TABLES"]);
+    // Two tabs closed (nobody left at those tables): the older of the two is recycled.
+    const [first, second] = [conns[1]!.last("joined").roomId, conns[3]!.last("joined").roomId];
+    hub.disconnected(conns[3]!);
+    vi.advanceTimersByTime(1000);
+    hub.disconnected(conns[1]!);
+    send(extra, { type: "createRoom", name: "more" });
+    expect(extra.last("joined")).toBeTruthy();
+    expect(hub.rooms.has(first)).toBe(true);
+    expect(hub.rooms.has(second)).toBe(false);
+    expect(hub.rooms.size).toBe(5);
+  });
+});

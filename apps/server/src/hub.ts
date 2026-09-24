@@ -119,9 +119,17 @@ export class Hub {
     const previous = this.roomOf.get(conn);
     if (this.rooms.size >= (this.options.maxRooms ?? Infinity)) throw new RoomError("SERVER_FULL", "The server has too many tables right now. Try again later.");
     const perIp = this.options.maxRoomsPerIp ?? Infinity;
-    if (conn.ip && [...this.rooms.values()].filter((r) => r.creatorIp === conn.ip).length >= perIp) {
-      log("warn", "room.tooManyFromAddress", { ip: conn.ip });
-      throw new RoomError("TOO_MANY_TABLES", "You already have several tables open. Close one first.");
+    const mine = conn.ip ? [...this.rooms.values()].filter((r) => r.creatorIp === conn.ip) : [];
+    if (mine.length >= perIp) {
+      // A table of this address that nobody is connected to any more (tabs closed) makes way for
+      // the new one, oldest first. Tables people are still at count against the limit.
+      const abandoned = mine.filter((r) => !r.seats.some((s) => s?.conn)).sort((a, b) => a.lastActive - b.lastActive)[0];
+      if (!abandoned) {
+        log("warn", "room.tooManyFromAddress", { ip: conn.ip });
+        throw new RoomError("TOO_MANY_TABLES", "You already have several tables open. Close one first.");
+      }
+      log("info", "room.recycled", { room: abandoned.id, ip: conn.ip });
+      abandoned.close();
     }
     let id = randomId(6);
     while (this.rooms.has(id)) id = randomId(6);
