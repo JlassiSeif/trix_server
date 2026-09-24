@@ -2,7 +2,7 @@
 // person, and saves screenshots. Fails on any browser error.
 //
 //   TRIX_SPEED=10 PORT=8123 node apps/server/dist/index.js     (after npm run build)
-//   node apps/web/e2e/play-vs-bots.mjs OUT_DIR [--base http://127.0.0.1:8123]
+//   node apps/web/e2e/play-vs-bots.mjs OUT_DIR [--base http://127.0.0.1:8123] [--viewport 390x844]
 // Set CHROMIUM=/path/to/chrome to use a specific Chromium build.
 
 import { mkdirSync, writeFileSync } from "node:fs";
@@ -13,7 +13,9 @@ const base = process.argv.includes("--base") ? process.argv[process.argv.indexOf
 mkdirSync(out, { recursive: true });
 
 const browser = await chromium.launch({ executablePath: process.env.CHROMIUM || undefined });
-const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+const vp = process.argv.includes("--viewport") ? process.argv[process.argv.indexOf("--viewport") + 1].split("x").map(Number) : null;
+const phone = !!vp && vp[0] < 600;
+const page = await browser.newPage({ viewport: vp ? { width: vp[0], height: vp[1] } : { width: 1440, height: 900 }, ...(phone ? { hasTouch: true } : {}) });
 const problems = [];
 page.on("pageerror", (e) => problems.push(`page error: ${e.message}`));
 page.on("console", (m) => m.type() === "error" && problems.push(`console: ${m.text()}`));
@@ -87,7 +89,15 @@ while (Date.now() < deadline) {
     await page.waitForSelector(".table-screen", { timeout: 15000 });
     await shot("after-refresh");
   }
-  if (!resized && contracts >= 3) {
+  // Phones: the leaderboard, feed and Leave live in a sheet behind "Scores".
+  if (phone && !taken.has("scores-sheet") && contracts >= 2 && (await visible(".side-toggle"))) {
+    await page.click(".side-toggle");
+    await page.waitForTimeout(400);
+    await shot("scores-sheet");
+    await page.click(".side-close");
+    await page.waitForTimeout(300);
+  }
+  if (!resized && !vp && contracts >= 3) {
     resized = true;
     await page.setViewportSize({ width: 390, height: 844 });
     await page.waitForTimeout(400);

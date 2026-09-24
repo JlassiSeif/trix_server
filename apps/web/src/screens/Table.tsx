@@ -48,6 +48,8 @@ export function Table({ conn }: { conn: Connection }) {
   const [linger, setLinger] = useState<ShownTrick | null>(null);
   const [peek, setPeek] = useState<ShownTrick | null>(null);
   const [toast, setToast] = useState<Toast | null>(null);
+  // Phones and narrow windows: the side panel (leaderboard, feed, leave) is a sheet opened on demand.
+  const [sideOpen, setSideOpen] = useState(false);
   const counter = useRef(0);
 
   // Game events drive the feed, the toasts, and the completed-trick pause.
@@ -114,11 +116,14 @@ export function Table({ conn }: { conn: Connection }) {
     <div className="table-screen">
       <div className={`felt phase-${game.phase}`}>
         <ContractBadge game={game} name={name} />
+        <button className="side-toggle secondary" onClick={() => setSideOpen(true)}>
+          Scores
+        </button>
         {SEATS.filter((s) => s !== me).map((s) => (
           <Opponent key={s} seat={s} position={pos(s)} room={room} game={game} />
         ))}
 
-        <div className="center">
+        <div className={`center ${game.phase === "picking" && game.picker === me ? "center-picker" : ""}`}>
           {game.phase === "picking" &&
             (game.picker === me ? <ContractPicker game={game} onPick={(c) => conn.send({ type: "action", action: { type: "pick", contract: c } })} /> : <Choosing name={name(game.picker)} />)}
           {(game.phase === "tricks" || (game.phase !== "trix" && linger)) && (
@@ -171,9 +176,17 @@ export function Table({ conn }: { conn: Connection }) {
         {room.status === "finished" && <GameOver conn={conn} />}
         {room.status === "paused" && <Paused conn={conn} />}
         {!conn.online && <div className="offline">Connection lost. Reconnecting…</div>}
+        <div className="rotate-notice">
+          <span className="big">⟳</span>
+          <strong>Turn your phone upright to play</strong>
+          <span className="muted">The table needs the height.</span>
+        </div>
       </div>
 
-      <aside className="side">
+      <aside className={`side ${sideOpen ? "open" : ""}`}>
+        <button className="side-close" onClick={() => setSideOpen(false)}>
+          Back to the table
+        </button>
         <Scoreboard conn={conn} />
         <Feed items={feed} />
         {conn.error && <p className="error">{conn.error.message}</p>}
@@ -428,20 +441,23 @@ function ContractSummary({ conn }: { conn: Connection }) {
               <th>Points</th>
               <th>Counted</th>
               <th>Total</th>
-              <th></th>
+              <th className="note"></th>
             </tr>
           </thead>
           <tbody>
             {SEATS.map((s) => (
               <tr key={s} className={s === room.you ? "you" : ""}>
-                <td>{name(s)}</td>
+                <td>
+                  {name(s)}
+                  {note(s) && <div className="note-inline muted small">{note(s)}</div>}
+                </td>
                 <td>{result.raw[s]}</td>
                 <td className={result.scores[s]! > 0 ? "bad" : result.scores[s]! < 0 ? "good" : ""}>
                   {result.scores[s]! > 0 ? "+" : ""}
                   {result.scores[s]}
                 </td>
                 <td>{result.totals[s]}</td>
-                <td className="muted small">{note(s)}</td>
+                <td className="note muted small">{note(s)}</td>
               </tr>
             ))}
           </tbody>

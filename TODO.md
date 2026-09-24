@@ -9,7 +9,7 @@ Play Trix online with friends: a web app hosted on Seif's free Oracle Cloud mach
 ## Open
 1. **Push to GitHub:** blocked. This machine's key logs in as `Seifeddine-Jlassi`, which has no access to `JlassiSeif/trix_server`. Seif to choose: add a collaborator, add the key, or use a new repo.
 2. **Bots with 3 levels (easy, medium, hard) and a "Play against bots" mode:** the spec draft is in `docs/bots.md`, waiting for Seif's edits and approval. Nothing gets built before that.
-3. **Deploy the trix deadline (R-GAME-11):** built and tested, not yet live. Deploy it on its own or together with the bots: Seif decides.
+3. **Deploy the trix deadline (R-GAME-11) and the phone layout:** built and tested, not yet live. Seif decides when.
 4. **To confirm (not blocking).** These are Claude's design calls, in use since v0.5, which Seif played. RULES.md still marks them "Seif to confirm":
    - R-TABLE-10: the owner adds bots in the lobby, and a friend who joins later takes over a bot's seat.
    - R-TABLE-11: a score summary after each contract; the next deal starts when everyone clicks Continue, or after 10 s.
@@ -31,4 +31,5 @@ Play Trix online with friends: a web app hosted on Seif's free Oracle Cloud mach
 - **Security review:** `docs/security.md`. Per-address limits, a lockout on guessing, an origin check, unique names, HTTP hardening; npm audit clean.
 - **Deployed (M5), 2026-09-24:** live at `https://trix.rheona.space`, a guest container on the shared Rheona VPS (`trix-web:fbbe767`), under the box's rules (`deploy/new_tenant.md`). `deploy/deploy.sh` does build, ship, prove on edge, validate + reload and post-checks; `docs/deploy.md` covers the rest. Verified live: a browser game over HTTPS/wss, security headers, real visitor addresses behind Caddy, 38 MB of the 128 MB cap, and the neighbours' post-checks green before and after.
 - **Trix deadline (R-GAME-11), 2026-09-24:** Seif's rule change: trix must be picked by your 6th pick, so it can't be kept last to escape the ×4. Covered by engine tests, the random-games test, a station referee check and a new mutant (8/8 caught). The station now fails a stalled game at once instead of hanging, and reports server errors on moves.
+- **Phone layout, 2026-09-24:** phones held upright (under 600 px) get a table that fits the screen with no scrolling, a contract list that leaves the hand visible, a hand sized to the width, and the leaderboard, feed and Leave behind a **Scores** button. Tablets keep full-size cards. A phone held sideways shows "Turn your phone upright". Checked with full games played through at 390×844 and 360×740 (`play-vs-bots.mjs --viewport`), plus desktop and the connection tests.
 - **Last full check (2026-09-24, commit `6b44117`):** 100/100 unit tests, station 30/30, browser connection tests 14/14.
