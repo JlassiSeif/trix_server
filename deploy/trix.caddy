@@ -1,0 +1,11 @@
+# Copied (scp, never a heredoc) to ~/rheona-infra/sites.d/trix.caddy on the shared VPS.
+# Validate, then reload; never restart. No HSTS on purpose (see deploy/new_tenant.md §6.5).
+trix.rheona.space {
+	encode gzip
+	# Game messages are tiny (the server caps them at 4 KB); nothing needs a large body.
+	request_body {
+		max_size 16KB
+	}
+	header -Server
+	reverse_proxy trix-web-1:8080
+}

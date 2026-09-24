@@ -1,0 +1,36 @@
+# Copied to /home/ubuntu/trix/docker-compose.yml on the shared VPS. Rules: deploy/new_tenant.md
+# (kept out of git) and rheonix-core docs/ops/VPS_SHARED_HOSTING.md. NO `ports:`, ever.
+name: trix
+services:
+  web:
+    image: trix-web:latest
+    restart: unless-stopped
+    mem_limit: 128m
+    cpus: "1.0"
+    # The data folder on the host belongs to ubuntu (1001); the saved rooms file is written there.
+    user: "1001:1001"
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    logging: { driver: json-file, options: { max-size: "10m", max-file: "3" } }
+    networks: [edge]
+    environment:
+      TRIX_STATE_FILE: /data/rooms.json
+      # Caddy reaches us over `edge` (a private network) and sets X-Forwarded-For to the visitor.
+      TRIX_TRUST_PROXY: private
+      TRIX_ORIGINS: https://trix.rheona.space
+      # Keep the JS heap well inside mem_limit.
+      NODE_OPTIONS: --max-old-space-size=80
+    volumes:
+      - ./data:/data
+    # SIGTERM saves the rooms and tells browsers to reconnect; give it time.
+    stop_grace_period: 10s
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8080/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+networks:
+  edge: { external: true }

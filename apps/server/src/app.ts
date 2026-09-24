@@ -23,8 +23,10 @@ export interface AppOptions {
   maxRooms?: number;
   maxSockets?: number;
   rate?: { perSecond: number; burst: number };
-  /** Behind a reverse proxy on this machine: take the client address from X-Forwarded-For. */
-  trustProxy?: boolean;
+  /** Behind a reverse proxy: take the client address from X-Forwarded-For when the connection comes
+   *  from the proxy. true: a proxy on this machine (loopback). "private": a proxy on a private network,
+   *  e.g. Caddy on a Docker network, for a container that publishes no ports. */
+  trustProxy?: boolean | "private";
   /** Pages allowed to open game connections (e.g. ["https://trix.example.com"]). Unset: any. */
   allowedOrigins?: string[];
   maxSocketsPerIp?: number;
@@ -34,6 +36,19 @@ export interface AppOptions {
 }
 
 const isLoopback = (a: string | undefined) => a === "127.0.0.1" || a === "::1" || a === "::ffff:127.0.0.1";
+
+/** Loopback or a private network address (10/8, 172.16/12, 192.168/16, fc00::/7), IPv4-mapped forms included. */
+export function isPrivate(a: string | undefined): boolean {
+  if (!a) return false;
+  if (isLoopback(a)) return true;
+  const v4 = a.startsWith("::ffff:") ? a.slice(7) : a;
+  const m = v4.match(/^(\d+)\.(\d+)\.\d+\.\d+$/);
+  if (m) {
+    const [x, y] = [Number(m[1]), Number(m[2])];
+    return x === 10 || (x === 172 && y >= 16 && y <= 31) || (x === 192 && y === 168);
+  }
+  return /^f[cd][0-9a-f]{2}:/i.test(a);
+}
 
 export interface App {
   port: number;
@@ -85,12 +100,13 @@ export async function startApp(opts: AppOptions): Promise<App> {
   const maxPerIp = opts.maxSocketsPerIp ?? 20;
   const socketsPerIp = new Map<string, number>();
 
-  /** The real client address. X-Forwarded-For is only believed from a proxy on this machine,
+  /** The real client address. X-Forwarded-For is only believed from our proxy (see trustProxy),
    *  and only its last entry (the one our proxy added; anything before it the client could forge). */
   function clientIp(req: IncomingMessage): string {
     const peer = req.socket.remoteAddress ?? "unknown";
     const xff = req.headers["x-forwarded-for"];
-    if (opts.trustProxy && isLoopback(peer) && typeof xff === "string" && xff.trim()) return xff.split(",").at(-1)!.trim();
+    const fromProxy = opts.trustProxy === "private" ? isPrivate(peer) : opts.trustProxy === true && isLoopback(peer);
+    if (fromProxy && typeof xff === "string" && xff.trim()) return xff.split(",").at(-1)!.trim();
     return peer;
   }
 

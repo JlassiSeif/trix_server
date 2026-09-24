@@ -1,79 +1,71 @@
-# Deploying Trix (draft)
+# Deploying Trix
 
-**Status: draft, waiting for Seif's instructions.** Nothing here has been run on the Oracle machine yet. Placeholders are marked `<…>`.
+**Where it runs:** `https://trix.rheona.space`, as a guest (the `trix` tenant) on the shared Rheona VPS `158.180.55.44`.
 
-## What runs in production
+The rules for that machine come first. It runs fleet-critical services (the Docker registry and the license server) behind one Caddy that Trix doesn't own. They are in `deploy/new_tenant.md` (kept out of git) and the contract `rheonix-core/docs/ops/VPS_SHARED_HOSTING.md`. Re-read them before any change. If this page disagrees with them, they win.
+
+## What runs
 
 ```
-browser ──HTTPS/WSS──▶ Caddy (:443, automatic certificate) ──▶ node apps/server/dist/index.js (127.0.0.1:8080)
-                                                                   └─ saves rooms to /var/lib/trix/rooms.json
+browser ──HTTPS/WSS──▶ rheona-infra-caddy-1 (owns :80/:443 and certificates)
+                         └─ edge network ──▶ trix-web-1:8080 (our container, no host ports)
+                                               └─ saves rooms to /home/ubuntu/trix/data/rooms.json
 ```
 
-- **One Node process.** `apps/server/dist/index.js` is a single self-contained file (it needs no `node_modules`). It serves the built web app from `apps/web/dist` and runs the game WebSocket on `/ws`.
-- **Requirements:** Node **≥ 22.12**, on x86 or ARM. It uses about 60 MB of RAM when idle. In the stress test, 100 tables at once stayed well within a small VM (numbers in `docs/predeploy-check.md`).
-- **Rooms are saved** to `TRIX_STATE_FILE` 0.5 s after every change, and again on shutdown. A restart or deploy puts every player back where they were. The file holds seat tokens, so it's created with permissions 600.
+- **The image `trix-web`:** Node 24 on Alpine, the one-file server bundle and the built web app. No `node_modules`. It is built on the dev machine from a commit (`git archive HEAD`), never on the VPS.
+- **The container:** capped at 128 MB and 1 CPU. It runs as uid 1001 (`ubuntu`, which owns the data folder), with a read-only filesystem, all capabilities dropped and no privilege escalation. It's reachable only over the `edge` network.
+- **Memory measured 2026-09-24:** 18 MB idle, 34 MB peak with 50 tables playing at once at 20× speed.
+- **Rooms are saved** 0.5 s after every change and again on shutdown, so a deploy puts every player back where they were. The file holds seat tokens: mode 600, inside our 700 folder.
 
-## Settings (environment variables)
+## Our footprint on the VPS (nothing else is ours)
 
-| Variable | Production value | Meaning |
+| Path | What |
+|---|---|
+| `/home/ubuntu/trix/docker-compose.yml` | copy of `deploy/compose.yml` |
+| `/home/ubuntu/trix/data/rooms.json` | saved rooms |
+| `~/rheona-infra/sites.d/trix.caddy` | copy of `deploy/trix.caddy` |
+| images `trix-web:<sha>`, `:latest`, `:prev` | the current release and the one before |
+
+## Settings (in `deploy/compose.yml`)
+
+| Variable | Value | Meaning |
 |---|---|---|
-| `PORT` | `8080` | Port the server listens on |
-| `HOST` | `127.0.0.1` | Listen only locally; Caddy is the public face |
-| `TRIX_STATE_FILE` | `/var/lib/trix/rooms.json` | Where rooms are saved |
-| `WEB_DIST` | `/opt/trix/apps/web/dist` | The built web app |
-| `TRIX_LOG_LEVEL` | `info` | `debug` logs every move; `info` logs joins, pauses, scores and errors |
-| `TRIX_MAX_ROOMS` | `200` (default) | Cap on tables |
-| `TRIX_TRUST_PROXY` | `1` | Caddy on the same machine forwards the real client address (needed for the per-address limits) |
-| `TRIX_ORIGINS` | `https://<domain>` | Only our own site may open game connections |
+| `TRIX_STATE_FILE` | `/data/rooms.json` | where rooms are saved |
+| `TRIX_TRUST_PROXY` | `private` | believe `X-Forwarded-For` from a private-network peer (Caddy on `edge`). Needed for the per-address limits; safe because no port is published. |
+| `TRIX_ORIGINS` | `https://trix.rheona.space` | only our own page may open game connections |
+| `NODE_OPTIONS` | `--max-old-space-size=80` | keeps the JS heap well inside the cap |
+| `HOST`, `PORT`, `WEB_DIST` | `0.0.0.0`, `8080`, `/app/web` | set in the image |
 
 `TRIX_SPEED` is for tests only. Never set it in production.
 
-## Build (on the machine or before copying)
+## Deploying
 
 ```bash
-npm ci
-npm run build       # → apps/web/dist and apps/server/dist/index.js
-npm test            # engine + server tests
+npm test && npm run typecheck     # green first
+deploy/deploy.sh                  # needs ~/.ssh/rheona (or TRIX_SSH_KEY)
 ```
 
-Only `apps/server/dist/index.js` and `apps/web/dist/` are needed to run.
+The script:
+1. refuses a dirty working tree, a `ports:` in the compose file, or DNS not pointing at the VPS;
+2. builds `trix-web:<sha>`, keeps a copy in `.deploy/`, and ships it with `docker load` (tagging the previous `latest` as `prev`);
+3. copies the compose file and runs `docker compose up -d` in our folder only;
+4. proves `trix-web-1` answers on `edge` before Caddy is involved;
+5. installs the site file only if it changed: validate, then reload (never restart). If that fails, it removes our file again;
+6. runs the post-checks and asserts each one on its own: registry 401, license 404, install.sh 200, Trix 200.
 
-## Install (draft, to be confirmed with Seif)
+Games in progress survive a deploy: players see "Reconnecting…" for a moment, then carry on.
 
-1. Create a user with no login: `sudo useradd --system --home /opt/trix --shell /usr/sbin/nologin trix`.
-2. Put the repo (or just the two build outputs) in `/opt/trix`, owned by `trix`.
-3. Install the service: copy `deploy/trix.service` to `/etc/systemd/system/`, check the `node` path (`which node`), then `sudo systemctl daemon-reload && sudo systemctl enable --now trix`.
-4. Install Caddy, and put `deploy/Caddyfile` (with the real domain) in `/etc/caddy/Caddyfile`. Then `sudo systemctl reload caddy`.
-5. DNS: an `A` record for `<domain>` pointing to the machine's public IP.
-6. Open ports 80 and 443 in **both** places:
-   - the Oracle VCN security list (ingress rules);
-   - the machine's own firewall. Oracle's Ubuntu images block these by default in iptables.
+`deploy/deploy.sh --checks` runs only the post-checks.
 
-## Securing the machine (to confirm with Seif at deploy time)
+## Backing out
 
-- **SSH:** keys only (`PasswordAuthentication no`), no root login.
-- **Firewall:** only 22, 80 and 443 open. Port 8080 stays closed to the outside; Trix only listens on 127.0.0.1.
-- **Automatic security updates:** `unattended-upgrades` on Ubuntu.
-- **Trix's own user:** Trix runs as its own user with no login shell, in a sandboxed service (see `deploy/trix.service`).
+- **A neighbour's post-check fails:** back out first, investigate after. Run `ssh ubuntu@158.180.55.44 'rm ~/rheona-infra/sites.d/trix.caddy'`, then validate and reload (as in the script), rerun the checks, and tell the owner.
+- **The previous release:** `docker tag trix-web:prev trix-web:latest && cd ~/trix && docker compose up -d`.
+- **Stop Trix:** `cd ~/trix && docker compose down` (no `-v`). Caddy then answers 502 and keeps the certificate.
 
-## Check it works
+## Watching it
 
-- `curl -s http://127.0.0.1:8080/api/health` on the machine → `{"ok":true,...}`.
-- `https://<domain>` in a browser: create a table, add 3 bots, play a card.
-- `journalctl -u trix -f` shows the JSON log lines.
-- From a laptop: `npm run station -- --base https://<domain> --only S01,S14` plays against the live server. Don't run the stress or flood scenarios against production.
-
-## Updating later
-
-```bash
-cd /opt/trix && git pull && npm ci && npm run build && sudo systemctl restart trix
-```
-
-Games in progress survive this: players see "Reconnecting…" for a second or two, then carry on.
-
-## What I need from Seif
-
-1. The domain name (or subdomain) to use.
-2. The Oracle machine: its shape (ARM A1 or AMD micro), OS and version, and how I get access (SSH user or key), or whether you'd rather run the commands yourself.
-3. Whether Node is already installed there, and how you prefer to install it (distro package, NodeSource or nvm).
-4. Whether anything else already runs on that machine on ports 80/443 (another web server).
+- Logs: `docker logs -f trix-web-1` (JSON lines). Useful warnings: `ws.rateLimited`, `ws.tooManyFromAddress`, `room.tooManyFromAddress`, `join.lockedOut`.
+- Counts, from inside the container only: `docker exec trix-web-1 node -e "fetch('http://127.0.0.1:8080/api/stats').then(r=>r.json()).then(console.log)"`.
+- Memory: `docker stats --no-stream trix-web-1`.
+- From a laptop: `npm run station -- --base https://trix.rheona.space --speed 1 --only S01` plays one gentle game against the live server. Never run the stress, flood or attack scenarios against production: they share a machine with the fleet.

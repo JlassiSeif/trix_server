@@ -1,6 +1,6 @@
 # Security review (2026-09-23)
 
-**Scope:** the Trix server and web app as they will run in production: Node behind Caddy on the Oracle machine, one domain, HTTPS.
+**Scope:** the Trix server and web app as they run in production: a container behind the shared Rheona Caddy at `https://trix.rheona.space`.
 
 **What we protect:**
 - fair games (nobody cheats, nobody sees another player's cards);
@@ -37,18 +37,18 @@
 | **Secrets in logs** | Seat tokens and invite codes are never logged | X10 (every token and code from a whole run checked against the log: 0 found) |
 | **Secrets at rest** | The saved-rooms file (which holds seat tokens) is written with permissions 600, in the service's own state folder | Server test (file mode 600) |
 | **Vulnerable dependencies** | Only one outside library ships with the server (`ws`, bundled in); versions are pinned | `npm audit`: 0 known vulnerabilities |
-| **The machine** | Trix runs as its own user with no login shell, sandboxed by systemd, listening only on 127.0.0.1. Caddy handles HTTPS (plus HSTS) and hides its software name. | `deploy/trix.service`, `deploy/Caddyfile`, plus the host checklist in `docs/deploy.md` (SSH keys only, firewall, automatic security updates) |
+| **The machine** (shared with the Rheona fleet) | Trix is a guest container: no host ports (only Caddy reaches it, over the `edge` network), 128 MB and 1 CPU cap, runs as uid 1001 with a read-only filesystem, all capabilities dropped, no privilege escalation. Caddy (not ours) handles HTTPS; our site file caps request bodies at 16 KB and removes the `Server` header. No HSTS, on the box rules' advice. | `deploy/compose.yml`, `deploy/trix.caddy`, `docs/deploy.md` |
 
 ## Accepted risks (reasonable for a friends' server)
 
 - **Someone with a valid invite link can join.** The link is the key. If it's shared too widely, the owner can kick anyone, and kicking changes the link.
 - **The owner has full control of their table** (kick, end the game). That's intended.
 - **Look-alike names** ("Seif" and "Seyf") are allowed. Exact duplicates aren't.
-- **A determined attacker with many addresses** could still use up the 200 tables or 1000 connections. For a small private server, that's handled by blocking addresses at the firewall or at Caddy if it ever happens.
+- **A determined attacker with many addresses** could still use up the 200 tables or 1000 connections. For a small private server, that's handled by blocking addresses in our Caddy site file if it ever happens.
 - **No accounts or passwords:** seats are tied to the browser. Clearing the browser's storage gives the seat up, and the owner re-invites.
 
 ## If something happens
 
-- **Logs:** `journalctl -u trix`. Useful warnings: `ws.rateLimited`, `ws.tooManyFromAddress`, `room.tooManyFromAddress` and `join.lockedOut`, each with the address.
-- **Blocking an address:** do it at Caddy (`remote_ip` matcher) or in the firewall.
-- **Ending everything:** `sudo systemctl stop trix`. Delete `/var/lib/trix/rooms.json` to drop all tables.
+- **Logs:** `docker logs trix-web-1`. Useful warnings: `ws.rateLimited`, `ws.tooManyFromAddress`, `room.tooManyFromAddress` and `join.lockedOut`, each with the address.
+- **Blocking an address:** a `remote_ip` matcher in our own site file (`deploy/trix.caddy`); the firewall is not ours.
+- **Ending everything:** `cd ~/trix && docker compose down`. Delete `~/trix/data/rooms.json` to drop all tables.

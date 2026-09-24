@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import WebSocket from "ws";
 import type { ServerMessage } from "@trix/protocol";
-import { startApp, type App } from "../src/app";
+import { isPrivate, startApp, type App } from "../src/app";
 
 const dir = mkdtempSync(join(tmpdir(), "trix-app-"));
 const web = join(dir, "web");
@@ -214,6 +214,20 @@ describe("security (see tools/station/src/security.ts for the full attack scenar
     const c = await Client.open(plain.port, { ip: "3.3.3.3" });
     await c.until(() => c.closeCode !== null);
     expect([a.closeCode, b.closeCode, c.closeCode]).toEqual([null, null, 1013]);
+  });
+
+  it('trusts a proxy on a private network with trustProxy "private" (Caddy on a Docker network)', async () => {
+    for (const a of ["10.1.2.3", "172.19.0.2", "::ffff:172.31.255.1", "192.168.0.117", "127.0.0.1", "::1", "fd12:3456::1"])
+      expect(isPrivate(a), a).toBe(true);
+    for (const a of ["172.15.0.1", "172.32.0.1", "8.8.8.8", "::ffff:203.0.113.5", "2001:db8::1", "", undefined])
+      expect(isPrivate(a), String(a)).toBe(false);
+    // The test peer is 127.0.0.1, which counts as private: forwarded addresses are honoured.
+    const app = await start({ trustProxy: "private", maxSocketsPerIp: 1 });
+    const a = await Client.open(app.port, { ip: "203.0.113.5" });
+    const b = await Client.open(app.port, { ip: "198.51.100.5" });
+    const a2 = await Client.open(app.port, { ip: "203.0.113.5" });
+    await a2.until(() => a2.closeCode !== null);
+    expect([a.closeCode, b.closeCode, a2.closeCode]).toEqual([null, null, 1013]);
   });
 
   it("refuses game connections from other websites", async () => {

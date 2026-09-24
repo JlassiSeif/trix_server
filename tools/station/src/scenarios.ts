@@ -27,7 +27,9 @@ export interface Scenario {
 const GAME_MS = 180_000;
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const check = (ok: boolean, text: string): Check => ({ ok, text });
-const stats = async (ctx: Ctx) => (await fetch(`${ctx.httpUrl}/api/stats`)).json() as Promise<{ rooms: number; sockets: number; heapUsedMb: number; rssMb: number }>;
+// /api/stats only answers on the server's own machine. The header also covers --base runs against a
+// container (the station then arrives through a trusted private network, like Caddy would).
+const stats = async (ctx: Ctx) => (await fetch(`${ctx.httpUrl}/api/stats`, { headers: { "x-forwarded-for": "127.0.0.1" } })).json() as Promise<{ rooms: number; sockets: number; heapUsedMb: number; rssMb: number }>;
 
 async function reconnect(c: StationClient, ms = 5000) {
   await c.connect();

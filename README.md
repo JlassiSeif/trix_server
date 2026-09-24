@@ -30,7 +30,7 @@ Server logs are JSON lines (`TRIX_LOG_LEVEL=debug|info|warn|error`); `/api/stats
 
 Connection flows in real browsers (friends joining, network drops, closed tabs, full table, kicks, two tabs, server restarts): `npm run build && node apps/web/e2e/connections.mjs`.
 
-Deploying: [docs/deploy.md](docs/deploy.md) (draft) and [docs/predeploy-check.md](docs/predeploy-check.md).
+Deploying: [docs/deploy.md](docs/deploy.md) (`deploy/deploy.sh`) and [docs/predeploy-check.md](docs/predeploy-check.md).
 
 ## Layout
 
