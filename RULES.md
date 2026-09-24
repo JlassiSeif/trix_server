@@ -104,21 +104,23 @@ The engine implements only what's written here. Every rule has an ID that the te
   3. The room owner copies the new link and sends it to whoever should take the seat.
 - **R-TABLE-7:** While the table is paused (a disconnect or an empty seat), the room owner can:
   1. **Wait for a replacement:** a new person joins through the invite link and takes over the empty seat (its hand, score and remaining contracts), and the game resumes.
-  2. **Resume without waiting:** the missing seat is played by the placeholder bot (R-BOT) until someone takes it.
+  2. **Resume without waiting:** the missing seat is played by a **medium** bot (R-BOT-3) until someone takes it.
   3. **End the game.**
 - **R-TABLE-8:** After the game ends, each player can click **Ready**. The next game starts when all 4 are ready. Seats stay the same, and the first picker is random again (R-SEAT-2).
-- **R-TABLE-10:** Before the game, the room owner can fill empty seats with **bots** (placeholder bots, R-BOT). A friend joining later through the invite link takes over a bot's seat. *(Added for v0.5 so Seif can test with bots; Seif to confirm.)*
+- **R-TABLE-10:** Before the game, the room owner can fill empty seats with **bots**, choosing each bot's level (easy, medium or hard, R-BOT-3). A friend joining later through the invite link takes over a bot's seat. *(Added for v0.5 so Seif can test with bots; Seif to confirm. Levels added 2026-09-24 with the approved bot spec.)*
 - **R-TABLE-11:** When a contract ends, everyone sees a score summary. The next deal starts when every human clicks **Continue**, or after **10 seconds**. *(Claude's design call under Seif's "up to good game design"; Seif to confirm.)*
 - **R-TABLE-12:** **Room ownership passes on.**
   1. If the owner **leaves**, or is **disconnected for 30 seconds**, ownership passes to the next connected player (counter-clockwise from the owner).
   2. The owner can **hand ownership** to any other connected player at any time.
   3. Ownership only ever goes to a person who is connected right now, never to a bot. If nobody is connected, it passes as soon as someone is.
   4. A previous owner who comes back does **not** get it back automatically; the current owner can hand it back.
+- **R-TABLE-13:** **Play against bots.** From the first screen, a player can start a table against three bots of one level (easy, medium or hard). The game starts at once. The invite link still works, so a friend can take over a bot's seat (R-TABLE-10).
 - **R-TABLE-9:** The interface is in **English** for now. Contracts are shown as `dineri`, `damet`, `pli`, `farcha`, `ray`, `general`, `trix`.
 
-## 8. Placeholder bot (plays a missing seat when the owner resumes without waiting)
-- **R-BOT-1:** The bot only ever makes legal moves, using the same engine rules as a human player.
-- **R-BOT-2:** It is a placeholder, not a strategy. It picks the first allowed contract in the order `dineri, damet, pli, farcha, ray, general, trix`, plays its lowest legal card (by R-DECK-2), and never declares K♥.
+## 8. Bots
+- **R-BOT-1:** A bot only ever makes legal moves, using the same engine rules as a human player.
+- **R-BOT-2:** *(Replaced 2026-09-24 by R-BOT-3.)* The placeholder bot picked the first allowed contract in the order `dineri, damet, pli, farcha, ray, general, trix`, played its lowest legal card, and never declared K♥. It remains only as the server's fallback if a bot ever fails to choose a legal move.
+- **R-BOT-3:** Bots play at one of three levels, **easy**, **medium** or **hard**, as specified in [docs/bots.md](docs/bots.md) (approved by Seif 2026-09-24). A bot knows only what a player in its seat could know: its own hand and everything that happened in public. Stand-in bots (R-TABLE-7) play at medium.
 
 ## Changelog
 - 2026-09-23: Approved by Seif. On approval: leaving and being kicked generate a new invite link (R-TABLE-6), and the bot is a placeholder (R-BOT-2).
@@ -126,3 +128,4 @@ The engine implements only what's written here. Every rule has an ID that the te
 - 2026-09-23: v0.5 added R-TABLE-10 (bots in the lobby) and R-TABLE-11 (score summary, Continue or 10 s). Both are Claude's design calls, awaiting Seif's confirmation.
 - 2026-09-23: Seif added R-TABLE-12 (ownership passes after the owner leaves or is away 30 s, can be handed over, connected players only, no automatic return).
 - 2026-09-24: Seif added R-GAME-11 (trix is due by the 6th pick), so trix can no longer be kept for the 7th pick to escape its ×4. R-GAME-5 now refers to it.
+- 2026-09-24: Bots built to the approved spec (docs/bots.md): R-BOT-3 replaces the placeholder (R-BOT-2); R-TABLE-10 gains bot levels; R-TABLE-7's stand-in plays at medium; R-TABLE-13 added (Play against bots, spec §8).

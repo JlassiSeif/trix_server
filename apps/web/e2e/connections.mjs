@@ -423,6 +423,40 @@ await runCase("C13", "HTML and script in player names", "Names are shown as plai
   return { pass: literal && injected === 0, got: `names shown literally: ${literal}; markup elements created from names: ${injected}` };
 });
 
+await runCase("C14", "Play against bots", "On the first screen, a name and one tap on a level (here Hard) starts a game at once against three bots of that level, named after it; the game plays.", async () => {
+  const me = await newPlayer("solo");
+  await me.goto(me.base);
+  await me.fill("#name", "Seif");
+  await shot(me, "C14-entry");
+  await me.click(".solo-level.hard");
+  await me.waitForSelector(".table-screen", { timeout: 10_000 });
+  await waitText(me, "Hard bot 3");
+  const handBefore = await handOf(me);
+  await autoplay(me, 4000);
+  const moved = (await handOf(me)) !== handBefore || (await me.locator(".contract-no").innerText()) !== "Contract 1 / 28";
+  const names = await me.locator(".lb-name").allInnerTexts();
+  await shot(me, "C14-solo-table");
+  await me.context().close();
+  const bots = ["Hard bot", "Hard bot 2", "Hard bot 3"].every((n) => names.some((x) => x.startsWith(n)));
+  return { pass: bots && moved, got: `leaderboard: ${names.join(", ")}; the game moved on: ${moved}` };
+});
+
+await runCase("C15", "Choosing the bots' level in the lobby", "The owner picks a level above the seats; each Add a bot uses the level chosen at that moment.", async () => {
+  const owner = await newPlayer("owner");
+  await createTable(owner, "Seif");
+  await owner.click('.levels button:has-text("Easy")');
+  await owner.click('button:has-text("Add a bot")');
+  await waitText(owner, "Easy bot");
+  await owner.click('.levels button:has-text("Hard")');
+  await owner.click('button:has-text("Add a bot")');
+  await waitText(owner, "Hard bot");
+  await shot(owner, "C15-lobby-levels");
+  const seats = await owner.locator(".lobby-seat strong").allInnerTexts();
+  await owner.context().close();
+  const ok = seats.includes("Easy bot") && seats.includes("Hard bot");
+  return { pass: ok, got: `seats: ${seats.join(", ")}` };
+});
+
 await runCase("C9", "Server restarts in the middle of a game", "After a restart (every deploy is one) the players' pages reconnect by themselves, and the game carries on where it was: same contract, same cards.", async () => {
   const owner = await newPlayer("owner");
   const friend = await newPlayer("friend");

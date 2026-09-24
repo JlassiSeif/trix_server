@@ -1,6 +1,6 @@
 # Bots: how they behave (spec)
 
-**Status: APPROVED by Seif, 2026-09-24**, including section 3 (picking) and the five decisions at the end as written. When the bots are built, the placeholder bot (R-BOT-2) is replaced and RULES.md gets a dated note. Changes after this need Seif's OK.
+**Status: APPROVED by Seif, 2026-09-24**, including section 3 (picking) and the five decisions at the end as written. **Built 2026-09-24** (`packages/engine/src/bots/`, RULES.md R-BOT-3); results in [bots-arena.md](bots-arena.md). Changes after this need Seif's OK.
 
 **Goal:** someone can play a whole game alone against 3 bots, at one of three levels: **easy**, **medium**, **hard**. Bots can also fill seats at a table of friends, as they do today.
 

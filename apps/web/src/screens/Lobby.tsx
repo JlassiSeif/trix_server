@@ -1,4 +1,5 @@
-import { SEATS, type Seat } from "@trix/engine";
+import { useState } from "react";
+import { BOT_LEVELS, SEATS, type BotLevel, type Seat } from "@trix/engine";
 import type { Connection } from "../net";
 import { InviteLink, LeaveButton } from "../components/bits";
 
@@ -7,6 +8,7 @@ export function Lobby({ conn }: { conn: Connection }) {
   const room = conn.room!;
   const isOwner = room.you === room.owner;
   const full = room.seats.every((s) => s.kind !== "empty");
+  const [level, setLevel] = useState<BotLevel>("medium");
 
   return (
     <main className="lobby">
@@ -16,6 +18,18 @@ export function Lobby({ conn }: { conn: Connection }) {
         <section>
           <h2>Invite your friends</h2>
           <InviteLink path={room.invitePath} />
+        </section>
+      )}
+      {isOwner && !full && (
+        <section className="bot-level">
+          <h2>Bots you add play at</h2>
+          <div className="levels" role="radiogroup" aria-label="Bot level">
+            {BOT_LEVELS.map((l) => (
+              <button key={l} role="radio" aria-checked={l === level} className={l === level ? "chosen" : "secondary"} onClick={() => setLevel(l)}>
+                {l[0]!.toUpperCase() + l.slice(1)}
+              </button>
+            ))}
+          </div>
         </section>
       )}
       <section className="lobby-seats">
@@ -31,7 +45,7 @@ export function Lobby({ conn }: { conn: Connection }) {
                 {seat.kind === "bot" ? "bot" : ""}
                 {seat.kind === "human" && !seat.connected ? " · away" : ""}
               </span>
-              {isOwner && seat.kind === "empty" && <button onClick={() => conn.send({ type: "addBot", seat: s })}>Add a bot</button>}
+              {isOwner && seat.kind === "empty" && <button onClick={() => conn.send({ type: "addBot", seat: s, level })}>Add a bot</button>}
               {isOwner && seat.kind === "human" && seat.connected && s !== room.you && (
                 <button className="secondary" onClick={() => conn.send({ type: "makeOwner", seat: s })}>
                   Make owner

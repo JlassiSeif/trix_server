@@ -57,6 +57,17 @@ input { font: inherit; padding: 0.55rem 0.7rem; border-radius: 8px; border: 1px 
 }
 .lobby-seat.human, .lobby-seat.bot { border-style: solid; border-color: rgba(242,193,78,0.5); }
 .seat-no { font-size: 0.75rem; opacity: 0.6; }
+.entry .hint { margin: 0; color: #b8c9c0; }
+.solo { width: min(520px, 100%); display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.6rem; }
+.solo h2, .bot-level h2 { font-size: 1rem; margin: 0; opacity: 0.85; }
+.solo-levels { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; }
+.solo-level { display: flex; flex-direction: column; gap: 0.2rem; align-items: center; background: rgba(0,0,0,0.28); color: var(--paper); border: 2px solid rgba(242,193,78,0.45); padding: 0.6rem 0.4rem; }
+.solo-level strong { font-size: 1.05rem; color: var(--gold); }
+.solo-level .small { opacity: 0.85; font-weight: 400; }
+.bot-level { display: flex; flex-direction: column; gap: 0.4rem; align-items: center; }
+.levels { display: inline-flex; gap: 0.3rem; background: rgba(0,0,0,0.25); padding: 0.25rem; border-radius: 10px; }
+.levels button { padding: 0.4rem 0.9rem; }
+.levels button.secondary { background: transparent; color: var(--paper); }
 
 /* ---------- Table layout ---------- */
 .table-screen { display: grid; grid-template-columns: 1fr 300px; height: 100vh; }
@@ -295,6 +306,10 @@ input { font: inherit; padding: 0.55rem 0.7rem; border-radius: 8px; border: 1px 
 
 /* Phones (portrait): sizes follow the screen width. */
 @media (max-width: 600px) {
+  .solo-levels { grid-template-columns: 1fr; }
+  .solo-level { flex-direction: row; justify-content: space-between; padding: 0.55rem 0.8rem; text-align: right; }
+  .entry, .lobby { justify-content: flex-start; padding-top: 2.5rem; }
+  .entry h1, .lobby h1 { font-size: 2.4rem; }
   /* The hand: 8 overlapping cards fill the width, each showing its corner. */
   .hand { --hc: min(74px, calc((100vw - 16px) / 5.1)); padding-top: 8px; }
   .hand .card { width: var(--hc); }

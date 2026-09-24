@@ -83,8 +83,14 @@ export function estimate(hand: readonly number[]): Record<Contract, number> {
   return { dineri, damet, pli, farcha, ray, general, trix };
 }
 
-/** The same estimates averaged over random hands: what "an average hand" gets (hard, §3). */
-export const BASELINE: Record<Contract, number> = (() => {
+/** The same estimates averaged over random hands: what "an average hand" gets (hard, §3).
+ *  Computed on first use (a few ms), so loading the engine costs nothing. */
+let cachedBaseline: Record<Contract, number> | null = null;
+export function baseline(): Record<Contract, number> {
+  cachedBaseline ??= computeBaseline();
+  return cachedBaseline;
+}
+function computeBaseline(): Record<Contract, number> {
   const rng = seededRng(20260924);
   const sum = Object.fromEntries(CONTRACTS.map((c) => [c, 0])) as Record<Contract, number>;
   const n = 3000;
@@ -99,7 +105,7 @@ export const BASELINE: Record<Contract, number> = (() => {
   }
   for (const c of CONTRACTS) sum[c] /= n;
   return sum;
-})();
+}
 
 export interface PickSituation {
   hand: readonly number[];
@@ -127,7 +133,7 @@ export function mediumPick(p: PickSituation): Contract {
   // Trix is the escape from a bad hand, before the deadline forces it (R-GAME-11).
   if (p.legal.includes("trix") && cost > BAD_HAND) return "trix";
   // General must not become the ×4 last pick: from the 5th pick on it goes first, unless terrible.
-  if (p.used.length >= 4 && p.legal.includes("general") && e.general <= BASELINE.general * 1.2) return "general";
+  if (p.used.length >= 4 && p.legal.includes("general") && e.general <= baseline().general * 1.2) return "general";
   return best;
 }
 
@@ -143,7 +149,7 @@ export function hardPick(p: PickSituation): Contract {
     // the ×4 last pick (trix never can, R-GAME-11).
     const othersLeft = remainingTrick - (c === "trix" ? 0 : 1);
     const later = c === "trix" ? 1 : 2 + 2 / Math.max(1, othersLeft);
-    let value = now * e[c] - later * BASELINE[c];
+    let value = now * e[c] - later * baseline()[c];
     // Near 1000, a big score now could end the game with me last (§7): prefer safe contracts.
     const after = p.total + now * e[c];
     if (after > 850) value += (after - 850) * 0.5;

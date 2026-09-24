@@ -23,7 +23,7 @@ import {
 import { KH, toNum } from "../src/bots/cards";
 import { sampleHands } from "../src/bots/hard";
 import { remember } from "../src/bots/memory";
-import { BASELINE, easyPick, estimate, hardPick, mediumPick } from "../src/bots/pick";
+import { baseline, easyPick, estimate, hardPick, mediumPick } from "../src/bots/pick";
 import { mediumDeclares, simPlay, simScores, type TrickSim } from "../src/bots/tricks";
 import { trixSimPlay, trixSimScores, type TrixSim } from "../src/bots/trix";
 import { cards } from "./helpers";
@@ -56,7 +56,7 @@ function play(seed: number, levels: BotLevel[], onStep?: (s: GameState, actor: S
   return s;
 }
 
-describe("bots play complete games with legal moves only (R-BOT-1)", () => {
+describe("bots play complete games with legal moves only (R-BOT-1, R-BOT-3)", () => {
   it("every level, mixed at one table", { timeout: 120_000 }, () => {
     const mixes: BotLevel[][] = [
       ["easy", "medium", "hard", "easy"],
@@ -220,7 +220,7 @@ describe("picking a contract (docs/bots.md §3)", () => {
 
   it("hard spends the contract this hand is unusually good for", () => {
     // A hand of low cards is good for everything, and best compared with an average hand for general.
-    expect(estimate(lowCards).general).toBeLessThan(BASELINE.general / 3);
+    expect(estimate(lowCards).general).toBeLessThan(baseline().general / 3);
     expect(hardPick({ hand: lowCards, legal: all.filter((x) => x !== "trix"), used: [], total: 0 })).toBe("general");
   });
 });

@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import type { BotLevel } from "@trix/engine";
 import { NAME_MAX } from "@trix/protocol";
 import type { Connection } from "../net";
 import { savedName } from "../net";
@@ -9,16 +10,21 @@ export function Entry({ conn, roomId, invite }: { conn: Connection; roomId: stri
   const [busy, setBusy] = useState(false);
   const joining = roomId !== null;
 
-  const submit = (e: FormEvent) => {
-    e.preventDefault();
+  /** Create a table (with `bots`: against three bots of that level, R-TABLE-13), or take a seat. */
+  const go = (bots?: BotLevel) => {
     const clean = name.trim();
     if (!clean) return;
     savedName.set(clean);
     setBusy(true);
     if (joining) conn.join({ type: "joinRoom", roomId, invite: invite ?? undefined, name: clean });
-    else conn.join({ type: "createRoom", name: clean });
+    else conn.join({ type: "createRoom", name: clean, ...(bots ? { bots } : {}) });
     setTimeout(() => setBusy(false), 1500);
   };
+  const submit = (e: FormEvent) => {
+    e.preventDefault();
+    go();
+  };
+  const canGo = !!name.trim() && !busy && conn.online;
 
   return (
     <main className="entry">
@@ -30,10 +36,24 @@ export function Entry({ conn, roomId, invite }: { conn: Connection; roomId: stri
       <form onSubmit={submit}>
         <label htmlFor="name">Your name</label>
         <input id="name" autoFocus maxLength={NAME_MAX} value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. lam3i" />
-        <button type="submit" disabled={!name.trim() || busy || !conn.online}>
+        <button type="submit" disabled={!canGo}>
           {joining ? "Take a seat" : "Create a table"}
         </button>
+        {!joining && <p className="muted small hint">…and send the link to three friends.</p>}
       </form>
+      {!joining && (
+        <section className="solo">
+          <h2>Or play alone against bots</h2>
+          <div className="solo-levels">
+            {LEVELS.map(([level, label, what]) => (
+              <button key={level} className={`solo-level ${level}`} disabled={!canGo} onClick={() => go(level)}>
+                <strong>{label}</strong>
+                <span className="small">{what}</span>
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
       {conn.error && !(conn.lost && (conn.error.code === "ROOM_NOT_FOUND" || conn.error.code === "BAD_TOKEN")) && <p className="error">{conn.error.message}</p>}
       {!conn.online && <p className="muted">Connecting to the server…</p>}
       {joining && (
@@ -44,6 +64,13 @@ export function Entry({ conn, roomId, invite }: { conn: Connection; roomId: stri
     </main>
   );
 }
+
+/** docs/bots.md §2: how each level feels. */
+const LEVELS: [BotLevel, string, string][] = [
+  ["easy", "Easy", "a beginner who knows the rules"],
+  ["medium", "Medium", "a decent club player"],
+  ["hard", "Hard", "a strong, patient player"],
+];
 
 const removedText = {
   kicked: "The table owner removed you from the table.",
