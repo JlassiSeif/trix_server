@@ -20,7 +20,17 @@ Play Trix online with friends: a web app hosted on Seif's free Oracle Cloud mach
 1. **Hub:** the site becomes a home for Tunisian games; each game has its own page with create table, play against bots and invite links. Trix is the first game; the others get added one by one, each with a rules walkthrough with Seif first.
 2. **Personas for Trix:** Jeddi (sweet grandpa), Je7ch (the donkey), Chmeyti (playful opportunist), Waben (funny asshole), with chat bubbles. Spec draft `docs/personas.md`, waiting for Seif's approval. Lines from Seif and friends in `docs/persona-lines.csv`.
 3. **Sounds, music, settings:** list and formats in `docs/sounds.md`; Seif provides the audio. Settings: music, sounds, memes, chat, and 18+ mode, which is off by default.
-4. **Later:** the other games (chkobba, rami, bent walad, loup garou, dominos, tehchi fih, an Uno-style game, a Monopoly-style game, jhayech, Pablo, the goose game); monetization (see the 2026-09-24 conversation).
+4. **Architecture and refactor (Seif, 2026-09-24, top priority):** prepare the codebase for many games, many players and frequent updates. Each game gets its own folder with its own rules, TODO, changelog, history and version, so it can be updated and rolled back on its own. Analysis and proposal: `docs/architecture.md`.
+5. **Other games:** chkobba, rami, bent walad, loup garou, dominos, tehchi fih, an Uno-style game, a Monopoly-style game, jhayech, Pablo, the goose game.
+
+## Platform roadmap (Seif, 2026-09-24): if this gets popular, this is where the value is
+Applies to Trix, rami, chkobba and most card games.
+- **Accounts:** play as a guest, then keep your progress with an account.
+- **Player personas and voice lines:** more personas people can pick for themselves, and voice lines they trigger to talk to the table.
+- **Customization:** card backs, card faces and shapes, table art, and each player's own corner of the table.
+- **Ladders:** rankings per game, seasons.
+- **Events:** tournaments where people win things (cosmetics, badges, sponsor prizes; never cash, which would be gambling law).
+- **Monetization:** the customizations above as the main income, plus sponsorship (see the 2026-09-24 conversation).
 
 ## Done
 - **M0 Housekeeping:** one repo at `~/trix`; the old C++ server and SDL client live in `archive/` as reference only; the Heroku remote and `.vscode/` are dropped. Baseline commit `7aab93e`.
