@@ -39,10 +39,19 @@ browser ──HTTPS/WSS──▶ rheona-infra-caddy-1 (owns :80/:443 and certifi
 
 `TRIX_SPEED` is for tests only. Never set it in production.
 
+## Before every deploy
+
+For Claude, this is the `hub-deploy` skill (`.claude/skills/hub-deploy`); a hook asks for confirmation whenever `deploy/deploy.sh` runs for real.
+
+1. Seif said "deploy" for this change. Earlier approvals don't count.
+2. The change is committed and the tree is clean.
+3. The full regression passed on this commit: unit tests, typecheck and build, the station, the mutation check, the arena, the browser flows, and a full game at desktop and phone size.
+4. The neighbours are healthy before we start: `deploy/deploy.sh --checks`.
+5. If a game's state or the save format changed, a test restores a save from the previous version.
+
 ## Deploying
 
 ```bash
-npm test && npm run typecheck     # green first
 deploy/deploy.sh                  # needs ~/.ssh/rheona (or TRIX_SSH_KEY)
 ```
 
@@ -57,6 +66,13 @@ The script:
 Games in progress survive a deploy: players see "Reconnecting…" for a moment, then carry on.
 
 `deploy/deploy.sh --checks` runs only the post-checks.
+
+## After every deploy
+
+1. A real browser plays a few moves on the live site, with no page errors.
+2. The server log shows the rooms restored and no bot or error lines; the container is healthy, has no published port, and stays well under its memory cap.
+3. Record it: a "Deployed" entry in the TODO (date, image, what went live, how it was checked); the game's CHANGELOG and version; tags `<game>@<version>` and `platform@<version>`, pushed.
+4. Tell Seif what went live.
 
 ## Backing out
 
