@@ -15,12 +15,11 @@ A home for Tunisian card and table games, played with friends or against bots, a
 Adding a game: [docs/adding-a-game.md](docs/adding-a-game.md).
 
 ## Open
-1. **Push to GitHub:** blocked. This machine's key logs in as `Seifeddine-Jlassi`, which has no access to `JlassiSeif/trix_server`. Seif to choose: add a collaborator, add the key, or use a new repo. Automated tests and deploys (architecture phase 4) need this.
-2. **Deploy the restructure** (architecture phase 1, built 2026-09-25): waiting for Seif to try it.
-3. **Architecture phase 2, fun for every game:** a settings panel (sounds, memes, music, bot chat, 18+ mode off by default), the sound system, chat bubbles and personas. Trix's content: `games/trix/TODO.md`.
-4. **Own machine before going public** (architecture §11). Which machine? Seif's Oracle free account?
-5. **The hub's name and address:** still "Tunisian games" at trix.rheona.space. Seif to decide.
-6. **Platform station:** the testing station lives in `games/trix/station`. Its game-independent parts (simulated players, attack scenarios) move to `platform/station` when the second game arrives.
+1. **Deploy the restructure** (architecture phase 1, built 2026-09-25): waiting for Seif to try it.
+2. **Architecture phase 2, fun for every game:** a settings panel (sounds, memes, music, bot chat, 18+ mode off by default), the sound system, chat bubbles and personas. Trix's content: `games/trix/TODO.md`.
+3. **Own machine before going public** (architecture §11). Which machine? Seif's Oracle free account?
+4. **The hub's name and address:** still "Tunisian games" at trix.rheona.space. Seif to decide.
+5. **Platform station:** the testing station lives in `games/trix/station`. Its game-independent parts (simulated players, attack scenarios) move to `platform/station` when the second game arrives.
 
 ## Roadmap (Seif, 2026-09-24): if this gets popular, this is where the value is
 The phases are in [docs/architecture.md](docs/architecture.md) §13. Applies to Trix, rami, chkobba and most card games.
@@ -33,6 +32,7 @@ The phases are in [docs/architecture.md](docs/architecture.md) §13. Applies to 
 
 ## Done (platform)
 - **Repository:** one repo at `~/trix`; the 2023 C++ server and SDL client live in `archive/` as reference only. Baseline commit `7aab93e`.
+- **GitHub (2026-09-25):** pushed to `JlassiSeif/trix_server` with the release tags (`v0.5.0`, `trix@1.0.0`, `platform@1.0.0`). This machine pushes with its own key, `~/.ssh/trix_github` (a deploy key with write access), set for this repo only (`git config core.sshCommand`). Automated tests and deploys (architecture phase 4) can build on it.
 - **Architecture phase 1 (2026-09-25):** `docs/architecture.md` approved by Seif (one repository with a folder per game; restructure first). The platform (`platform/`) runs any game through the game contract (`platform/sdk`); Trix is `games/trix`. Hub home page, a page per game, per-game off switch (`TRIX_CLOSED_GAMES`), `GET /api/games`, per-game TODO, changelog and version. A test-only second game proves the platform doesn't depend on Trix.
 - **Security review:** `docs/security.md`. Per-address limits, a lockout on guessing, an origin check, unique names, HTTP hardening; npm audit clean.
 - **Pre-deployment check:** `docs/predeploy-check.md`. Games survive restarts, lost tables are handled, two tabs can't fight over one seat, caps plus security and cache headers.
