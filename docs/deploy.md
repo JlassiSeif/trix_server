@@ -1,4 +1,4 @@
-# Deploying Trix
+# Deploying the games hub
 
 **Where it runs:** `https://trix.rheona.space`, as a guest (the `trix` tenant) on the shared Rheona VPS `158.180.55.44`.
 
@@ -33,6 +33,7 @@ browser ──HTTPS/WSS──▶ rheona-infra-caddy-1 (owns :80/:443 and certifi
 | `TRIX_STATE_FILE` | `/data/rooms.json` | where rooms are saved |
 | `TRIX_TRUST_PROXY` | `private` | believe `X-Forwarded-For` from a private-network peer (Caddy on `edge`). Needed for the per-address limits; safe because no port is published. |
 | `TRIX_ORIGINS` | `https://trix.rheona.space` | only our own page may open game connections |
+| `TRIX_CLOSED_GAMES` | empty | games switched off: no new tables, running ones finish (see "One game at a time") |
 | `NODE_OPTIONS` | `--max-old-space-size=80` | keeps the JS heap well inside the cap |
 | `HOST`, `PORT`, `WEB_DIST` | `0.0.0.0`, `8080`, `/app/web` | set in the image |
 
@@ -62,6 +63,20 @@ Games in progress survive a deploy: players see "Reconnecting…" for a moment, 
 - **A neighbour's post-check fails:** back out first, investigate after. Run `ssh ubuntu@158.180.55.44 'rm ~/rheona-infra/sites.d/trix.caddy'`, then validate and reload (as in the script), rerun the checks, and tell the owner.
 - **The previous release:** `docker tag trix-web:prev trix-web:latest && cd ~/trix && docker compose up -d`.
 - **Stop Trix:** `cd ~/trix && docker compose down` (no `-v`). Caddy then answers 502 and keeps the certificate.
+
+## One game at a time
+
+Every game has its own folder, version, changelog and tags (`docs/architecture.md` §3, §12).
+
+- **Switch a game off** (a bad bug, no time to fix): add its id to `TRIX_CLOSED_GAMES` in `~/trix/docker-compose.yml` (e.g. `TRIX_CLOSED_GAMES: trix`), then `docker compose up -d`. No new tables for that game; tables already playing finish; every other game carries on. The home page shows it as "back in a moment". Remove the id to reopen.
+- **Roll back one game:** restore its folder from its last good tag and deploy. Other games don't move.
+  ```bash
+  git checkout trix@1.0.0 -- games/trix        # the folder as it was at that release
+  git commit -m "Roll Trix back to 1.0.0"
+  deploy/deploy.sh
+  ```
+  This works as long as the game still fits the platform's contract (`platform/sdk`); the tests say so before the deploy.
+- **Roll back everything:** the previous image, as above (`trix-web:prev`).
 
 ## Watching it
 

@@ -20,6 +20,8 @@ services:
       # Caddy reaches us over `edge` (a private network) and sets X-Forwarded-For to the visitor.
       TRIX_TRUST_PROXY: private
       TRIX_ORIGINS: https://trix.rheona.space
+      # Games switched off (comma-separated ids): no new tables, running ones finish. docs/deploy.md.
+      TRIX_CLOSED_GAMES: ""
       # Keep the JS heap well inside mem_limit.
       NODE_OPTIONS: --max-old-space-size=80
     volumes:

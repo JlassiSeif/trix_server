@@ -1,6 +1,6 @@
 # Architecture for the games hub
 
-**Status: PROPOSAL for Seif to approve** (2026-09-24). Nothing below is built yet except where it says "today".
+**Status: APPROVED by Seif, 2026-09-24:** one repository with a folder per game (§3), and the restructure first (§13). **Phase 1 built 2026-09-25**: the layout below exists, Trix runs behind the game contract, and a test-only second game proves the platform doesn't depend on Trix. Still open: which machine to move to (decision 4).
 
 ## 1. What it has to hold up
 
@@ -43,12 +43,13 @@ platform/
   protocol/   messages between browser and server, game-agnostic envelope
   server/     rooms, seats, invites, reconnects, persistence, bot scheduling, security (no game rules)
   web/        the hub: home and game picker, routing, settings, audio, chat bubbles, lobby, room chrome
-  station/    simulated players and scenarios for any game; each game plugs in its referee
+  ui/         the shared kit: connection, invite link, leave button, overlays
+  station/    (when the second game arrives) simulated players and attack scenarios for any game
 games/
   trix/
-    README.md  RULES.md  TODO.md  CHANGELOG.md  package.json (its version)
-    engine/    rules and bots          (today: games/trix/engine)
-    ui/        the table screens       (today: platform/web/src/screens/Table.tsx and friends)
+    README.md  RULES.md  TODO.md  CHANGELOG.md
+    engine/    rules and bots, and module.ts (the game contract)
+    ui/        its description for the hub, and its table screens
     station/   Trix's referee and scenarios
     docs/      bots.md, personas.md, arena results …
 docs/          platform docs: architecture, security, deploy
