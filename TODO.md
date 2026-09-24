@@ -16,6 +16,12 @@ Play Trix online with friends: a web app hosted on Seif's free Oracle Cloud mach
 3. **`docs/client-baseline.md`:** Seif was going to mark the behaviour he wants from the old client. v0.5 has since replaced it as the working spec. Seif decides whether to drop this item.
 4. **Later: our own card designs.** The cards are GNOME Aisleriot's "bonded" theme (GPL-3.0-or-later; the notice is in the README) and stay until we have our own.
 
+## Friends' feedback (2026-09-24): proposals, nothing decided yet
+- **Bot personalities** on top of the levels: a wise old man, a risky player, a dumb player, a cunning player, a trash-talker, one that roasts you.
+- **Audio:** meme sounds on big moments (winning, taking the K♥, the loser at the end), Tunisian songs in the background.
+- **A hub for Tunisian games:** chkobba, rami, bent walad, loup garou, dominos, tehchi fih, Uno, Monopoly, jhayech, Pablo, the goose game. Each game gets its own rules walkthrough with Seif first, as Trix did.
+- **Monetization:** Seif asked how. Claude's analysis is in the 2026-09-24 conversation; waiting for Seif's decisions.
+
 ## Done
 - **M0 Housekeeping:** one repo at `~/trix`; the old C++ server and SDL client live in `archive/` as reference only; the Heroku remote and `.vscode/` are dropped. Baseline commit `7aab93e`.
 - **M1 Rules:** `RULES.md` approved by Seif on 2026-09-23. Every rule has an ID, and tests cite those IDs. Bots are placeholders by decision (R-BOT-2). A player who leaves or is kicked can't reclaim their seat; a new invite link is generated (R-TABLE-6).
