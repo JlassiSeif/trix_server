@@ -145,6 +145,15 @@ export class Table {
   }
 
   private stallReported = false;
+  private onStall: () => void = () => undefined;
+  /** Settles when the watchdog reports a stall, so waits end at once instead of at their timeout. */
+  private stalled = (() => {
+    const p = new Promise<never>((_, fail) => {
+      this.onStall = () => fail(new Error(`${this.label}: the game stalled (see the stall finding)`));
+    });
+    p.catch(() => undefined); // a stall with nobody waiting is still just a finding
+    return p;
+  })();
   private checkStall() {
     const live = this.live;
     if (!live.length) return;
@@ -157,6 +166,7 @@ export class Table {
     // A station player told to sit still (policy null) is not a stall.
     if (turnClient && !turnClient.policy && g?.phase !== "contractEnd") return;
     this.stallReported = true;
+    this.onStall();
     this.findings.push({
       check: "stall",
       detail:
@@ -171,7 +181,7 @@ export class Table {
 
   /** Every connected player has seen game over. */
   async untilFinished(ms: number): Promise<void> {
-    await Promise.all(this.live.filter((c) => c.ws).map((c) => c.waitFor(() => c.room?.status === "finished", ms, "game over")));
+    await Promise.race([Promise.all(this.live.filter((c) => c.ws).map((c) => c.waitFor(() => c.room?.status === "finished", ms, "game over"))), this.stalled]);
   }
 
   allFindings(): TableFinding[] {

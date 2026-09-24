@@ -77,6 +77,8 @@ describe("Fuzz: random legal games", () => {
       expect(state.contractNo).toBeLessThanOrEqual(28);
       // No seat picked a contract twice (R-GAME-1), and the picker rotated (R-GAME-2).
       for (const used of state.used) expect(new Set(used).size).toBe(used.length);
+      // Trix is picked by the 6th pick at the latest (R-GAME-11).
+      for (const used of state.used) if (used.length >= 6) expect(used.slice(0, 6)).toContain("trix");
       state.history.forEach((h, i) => expect(h.picker).toBe((state.firstPicker + i) % 4));
       // Totals are the running sum of contract scores, with exact-1000 resets (R-GAME-6).
       let totals = [0, 0, 0, 0];

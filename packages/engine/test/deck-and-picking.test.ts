@@ -118,12 +118,35 @@ describe("R-GAME-4: trix needs a jack", () => {
 describe("R-GAME-5: forced trix without a jack is still played", () => {
   it("lets the first counter-clockwise player with a jack open", () => {
     const g = createGame({ seed: 1, firstPicker: 0, presetDeals: [NO_JACK_FOR_0] });
-    g.used[0] = ["dineri", "damet", "pli", "farcha", "ray", "general"];
+    g.used[0] = ["dineri", "damet", "pli", "farcha", "ray"]; // 6th pick: trix is due (R-GAME-11)
     expect(legalContracts(g, 0)).toEqual(["trix"]);
     const { state, events } = act(g, 0, { type: "pick", contract: "trix" });
-    expect(state.forced).toBe(true);
+    expect(state.forced).toBe(false); // "forced" is the ×4 7th pick (R-MULT-2); trix is never that now
     expect(state.multiplier).toBe(1); // R-MULT-3
     expect(events).toContainEqual({ type: "passed", seat: 0 });
     expect(state.turn).toBe(1);
+  });
+});
+
+describe("R-GAME-11: trix is due by the 6th pick", () => {
+  it("offers only trix at the 6th pick, even with a jack and another contract left", () => {
+    const g = createGame({ seed: 1, firstPicker: 1, presetDeals: [NO_JACK_FOR_0] });
+    g.used[1] = ["dineri", "damet", "pli", "farcha", "ray"];
+    expect(legalContracts(g, 1)).toEqual(["trix"]);
+    reject(g, 1, { type: "pick", contract: "general" }, "ILLEGAL_CONTRACT");
+  });
+
+  it("leaves the choice open before the 6th pick", () => {
+    const g = createGame({ seed: 1, firstPicker: 1, presetDeals: [NO_JACK_FOR_0] });
+    g.used[1] = ["dineri", "damet", "pli", "farcha"];
+    expect(legalContracts(g, 1)).toEqual(["ray", "general", "trix"]);
+  });
+
+  it("makes the 7th pick a trick contract at ×4", () => {
+    const g = createGame({ seed: 1, firstPicker: 1, presetDeals: [NO_JACK_FOR_0] });
+    g.used[1] = ["dineri", "damet", "pli", "trix", "farcha", "ray"];
+    expect(legalContracts(g, 1)).toEqual(["general"]);
+    const { state } = act(g, 1, { type: "pick", contract: "general" });
+    expect([state.forced, state.multiplier]).toEqual([true, 4]);
   });
 });

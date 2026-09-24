@@ -26,6 +26,7 @@ const MUTANTS: Mutant[] = [
   { name: "everyone multiplied, not just the picker", file: "scoring.ts", from: "(s === args.picker ? points * args.multiplier : points)", to: "(points * args.multiplier)", expect: "score-" },
   { name: "trix: a 10 fits right after the jack", file: "game.ts", from: "return r === stack.high + 1 || r === stack.low - 1;", to: "return r === stack.high + 1 || r === stack.low - 1 || r === 6;", expect: "trix-placement" },
   { name: "the view shows the next player's hand", file: "view.ts", from: "hand: state.hands[seat]!,", to: "hand: state.hands[(seat + 1) % 4]!,", expect: "hand-" },
+  { name: "trix never due (no R-GAME-11)", file: "game.ts", from: 'if (remaining.includes("trix") && state.used[seat]!.length >= 5) return ["trix"];', to: "", expect: "trix-overdue" },
   { name: "the look at the last trick goes to everyone", file: "game.ts", from: 'return event.type === "lastTrickShown" ? event.seat : null;', to: "return null;", expect: "privacy-peek" },
 ];
 
@@ -47,7 +48,7 @@ for (const [i, m] of MUTANTS.entries()) {
     join(root, "apps/server/src/index.ts"), "--bundle", "--platform=node", "--format=esm", "--target=node22", "--external:ws",
     `--alias:@trix/engine=${join(dir, "engine/index.ts")}`, `--outfile=${join(dir, "server.js")}`, "--log-level=warning",
   ]);
-  const run = spawnSync(process.execPath, ["--import", "tsx", join(root, "tools/station/src/main.ts"), "--only", "S01,S21", "--seed", String(100 + i), "--server-js", join(dir, "server.js"), "--out", join(dir, "run")], {
+  const run = spawnSync(process.execPath, ["--import", "tsx", join(root, "tools/station/src/main.ts"), "--only", "S01,S02,S21", "--seed", String(100 + i), "--server-js", join(dir, "server.js"), "--out", join(dir, "run")], {
     cwd: root,
     encoding: "utf8",
     timeout: 300_000,

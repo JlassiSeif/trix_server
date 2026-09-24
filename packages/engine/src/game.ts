@@ -247,11 +247,13 @@ function deal(state: GameState): void {
 // ---------------------------------------------------------------------------
 // What is legal
 
-/** Contracts the picker may choose now (R-GAME-1, R-GAME-4, R-GAME-5). */
+/** Contracts the picker may choose now (R-GAME-1, R-GAME-4, R-GAME-5, R-GAME-11). */
 export function legalContracts(state: GameState, seat: Seat): Contract[] {
   if (state.phase !== "picking" || seat !== state.picker) return [];
   const remaining = CONTRACTS.filter((c) => !state.used[seat]!.includes(c));
-  if (remaining.length === 1) return remaining; // forced: trix is allowed even without a jack (R-GAME-5)
+  // R-GAME-11: trix is due by the 6th pick, with or without a jack (R-GAME-5).
+  if (remaining.includes("trix") && state.used[seat]!.length >= 5) return ["trix"];
+  if (remaining.length === 1) return remaining; // the 7th pick
   const hasJack = state.hands[seat]!.some((c) => rankOf(c) === "j");
   return remaining.filter((c) => c !== "trix" || hasJack);
 }

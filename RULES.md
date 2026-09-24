@@ -26,7 +26,7 @@ The engine implements only what's written here. Every rule has an ID that the te
 - **R-GAME-2:** The picker moves counter-clockwise after every contract. So there are at most 4 × 7 = **28 contracts**, and each player's 7th pick is forced (it's the only one they have left).
 - **R-GAME-3:** Each contract runs: deal → the picker chooses one of their unused contracts → play → score.
 - **R-GAME-4:** A player may pick `trix` only if they hold at least one jack.
-- **R-GAME-5:** Exception: if `trix` is a player's last remaining contract (forced) and they hold no jack, trix is still played. The first jack is placed by the next player counter-clockwise who holds a jack (see R-TRIX-2).
+- **R-GAME-5:** Exception: if `trix` is forced on a player (R-GAME-11) and they hold no jack, trix is still played. The first jack is placed by the next player counter-clockwise who holds a jack (see R-TRIX-2).
 - **R-GAME-6:** After each contract, its scores are added to the running totals. Then:
   1. Any total of **exactly 1000** is reset to **0**.
   2. If any total is **strictly over 1000**, the game is over.
@@ -34,6 +34,7 @@ The engine implements only what's written here. Every rule has an ID that the te
 - **R-GAME-8:** Totals can go negative (through trix).
 - **R-GAME-9:** At the end of the game, the lowest total wins and the highest total loses. Equal totals are ties, with no tie-breaker.
 - **R-GAME-10:** The result screen puts the **loser** front and centre (the player who went over 1000, or otherwise the highest total), with the winner second.
+- **R-GAME-11:** **Trix is due by your 6th pick.** If a player's 6th pick comes and `trix` is still unused, trix is their only choice for that pick, with or without a jack (without one, R-GAME-5 applies). So trix is never a 7th pick, and the ×4 of R-MULT-2 always falls on a trick contract.
 
 ## 4. Trick play (every contract except trix)
 - **R-TRICK-1:** The picker leads the first trick.
@@ -124,3 +125,4 @@ The engine implements only what's written here. Every rule has an ID that the te
 - 2026-09-23: Seif added R-TRICK-6 (look at the last trick twice per contract). The exact moments when a look is allowed are assumed and marked as such.
 - 2026-09-23: v0.5 added R-TABLE-10 (bots in the lobby) and R-TABLE-11 (score summary, Continue or 10 s). Both are Claude's design calls, awaiting Seif's confirmation.
 - 2026-09-23: Seif added R-TABLE-12 (ownership passes after the owner leaves or is away 30 s, can be handed over, connected players only, no automatic return).
+- 2026-09-24: Seif added R-GAME-11 (trix is due by the 6th pick), so trix can no longer be kept for the 7th pick to escape its ×4. R-GAME-5 now refers to it.

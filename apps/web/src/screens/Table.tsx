@@ -283,16 +283,28 @@ function ContractPicker({ game, onPick }: { game: PlayerView; onPick: (c: Contra
   const used = game.used[game.seat] ?? [];
   const hasJack = game.hand.some((c) => c.startsWith("j_"));
   const remaining = CONTRACT_ORDER.length - used.length;
+  // R-GAME-11: trix is due by the 6th pick (used.length 5).
+  const trixLeft = !used.includes("trix");
+  const trixDue = trixLeft && used.length >= 5;
   return (
     <div className="picker">
       <h2>Choose your contract</h2>
       <p className="muted">
-        Your score in it counts {remaining === 1 ? "×4 (your last pick)" : "×2"}. Trix is never multiplied.
+        {trixDue
+          ? "Trix is due: it must be your 6th pick at the latest."
+          : `Your score in it counts ${remaining === 1 ? "×4 (your last pick)" : "×2"}. Trix is never multiplied.`}
+        {trixLeft && used.length === 4 && " Trix is due by your next pick."}
       </p>
       <div className="picker-grid">
         {CONTRACT_ORDER.map((c) => {
           const ok = available.has(c);
-          const why = used.includes(c) ? "already played" : c === "trix" && !hasJack ? "needs a jack" : "";
+          const why = used.includes(c)
+            ? "already played"
+            : trixDue && c !== "trix"
+              ? "trix first"
+              : c === "trix" && !ok && !hasJack
+                ? "needs a jack"
+                : "";
           return (
             <button key={c} className={`contract-tile ${ok ? "" : "disabled"}`} disabled={!ok} onClick={() => onPick(c)}>
               <ContractIcon contract={c} />

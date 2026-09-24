@@ -79,6 +79,11 @@ export function checkView(prev: PlayerView | null, view: PlayerView, events: Gam
       if (prev.kingDeclaredBy !== null) bad("declare-twice", `K♥ declared again (already by seat ${prev.kingDeclaredBy})`);
     }
     if (e.type === "picked" && (prev.phase !== "picking" || prev.picker !== e.seat)) bad("picked-by-non-picker", `seat ${e.seat} picked, picker was ${prev.picker} in ${prev.phase}`);
+    if (e.type === "picked") {
+      // R-GAME-11: trix is due by the 6th pick.
+      const before = prev.used[e.seat] ?? [];
+      if (e.contract !== "trix" && !before.includes("trix") && before.length >= 5) bad("trix-overdue", `seat ${e.seat} picked ${e.contract} as pick ${before.length + 1} with trix unused`);
+    }
 
     if (e.type === "trickWon") {
       const led = suit(e.cards[0]!.card); // R-TRICK-3

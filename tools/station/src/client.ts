@@ -53,6 +53,7 @@ export class StationClient {
   events: GameEvent[] = [];
   policy: Policy | null = null;
   lastMessageAt = Date.now();
+  private serverErrorSeen = false;
   private sent = new Map<number, { msg: unknown; atUpdate: number; deliberate: boolean }>();
   private nextId = 1;
   /** Junk sent without an id: its errors can't be matched, so they are counted. */
@@ -148,7 +149,6 @@ export class StationClient {
   }
 
   private receive(raw: string) {
-    this.lastMessageAt = Date.now();
     let msg: ServerMessage;
     try {
       msg = JSON.parse(raw);
@@ -156,6 +156,8 @@ export class StationClient {
       this.findings.push({ check: "server-sent-bad-json", detail: raw.slice(0, 200), client: this.name, update: this.updates });
       return;
     }
+    // Errors are not progress: a move refused over and over must still look like a stall.
+    if (msg.type !== "error") this.lastMessageAt = Date.now();
     this.log("in", msg);
     switch (msg.type) {
       case "joined":
@@ -202,6 +204,11 @@ export class StationClient {
           unsolicited: !sent && !junk,
           sent: sent?.msg ?? (junk ? "(raw junk)" : undefined),
         });
+        // The server broke on a real move: always a bug.
+        if (msg.code === "SERVER_ERROR" && sent && !sent.deliberate && !this.serverErrorSeen) {
+          this.serverErrorSeen = true;
+          this.findings.push({ check: "server-error", detail: `${JSON.stringify(sent.msg)} → ${msg.message}`, client: this.name, update: this.updates });
+        }
         // A real move was refused (e.g. it arrived while the table was paused): try again,
         // as a person would click again.
         if (sent && !sent.deliberate) {
