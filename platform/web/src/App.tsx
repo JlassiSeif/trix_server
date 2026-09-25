@@ -1,7 +1,7 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useState, type ComponentType } from "react";
-import { seatToken, useConnection, useText, type Connection, type GameUI } from "@platform/ui";
+import { TableChromeProvider, seatToken, useConnection, useText, type Connection, type GameUI } from "@platform/ui";
 import { account } from "./account";
-import { TopBar } from "./brand";
+import { TableChrome, TopBar } from "./brand";
 import { gameById } from "./games";
 import { AccountPage } from "./screens/Account";
 import { Entry } from "./screens/Entry";
@@ -128,7 +128,9 @@ function GameTable({ conn, game }: { conn: Connection; game: GameUI | null }) {
         </div>
       }
     >
-      <Table conn={conn} />
+      <TableChromeProvider value={TableChrome}>
+        <Table conn={conn} />
+      </TableChromeProvider>
     </Suspense>
   );
 }

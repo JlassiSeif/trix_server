@@ -55,7 +55,9 @@ export function Lobby({ conn, game }: { conn: Connection; game: GameUI | null })
                 <div key={s} className={`lobby-seat ${seat.kind} ${you ? "you" : ""}`}>
                   <span className="seat-no">{t.lobby.seat(s + 1)}</span>
                   <strong>{seatName(seat, lang, levels) ?? t.lobby.empty}</strong>
-                  <span className="seat-tags">{tags.join(" · ") || " "}</span>
+                  <span className="seat-tags">
+                    {seat.kind === "bot" && levels.some((l) => l.id === seat.level) && <Pips n={levels.findIndex((l) => l.id === seat.level) + 1} />} {tags.join(" · ") || " "}
+                  </span>
                   {isOwner && seat.kind === "empty" && (
                     <button className="add-bot" onClick={() => conn.send({ type: "addBot", seat: s, ...(level ? { level } : {}) })}>
                       {t.lobby.addBot}

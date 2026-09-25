@@ -45,4 +45,4 @@ Server logs are JSON lines (`TRIX_LOG_LEVEL=debug|info|warn|error`); `/api/games
 
 Deploying: [docs/deploy.md](docs/deploy.md) (`deploy/deploy.sh`), including switching one game off and rolling one game back.
 
-Trix's card images: GNOME Aisleriot "bonded" theme (GPL-3.0-or-later), taken from the old client's assets.
+Trix's card faces: GNOME Aisleriot "bonded" theme (GPL-3.0-or-later), taken from the old client's assets (also credited on the site's About page). The card back is Dineri's own (`platform/ui/src/assets/card-back.svg`).

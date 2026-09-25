@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { LANGS, useLang, useText, type GameUI, type Lang } from "@platform/ui";
+export { Pips } from "@platform/ui";
 import { account, useAccount } from "./account";
 import { SignInDialog } from "./screens/SignIn";
 import { T } from "./text";
@@ -163,15 +164,6 @@ export function Footer({ go }: { go: (path: string) => void }) {
   );
 }
 
-/** Difficulty as diamonds: easy ♦, medium ♦♦, hard ♦♦♦. */
-export function Pips({ n }: { n: number }) {
-  return (
-    <span className="pips" aria-hidden>
-      {"♦".repeat(n)}
-    </span>
-  );
-}
-
 /** A few of the game's own images, fanned out like a hand of cards. */
 export function Fan({ game, size = "md" }: { game: GameUI; size?: "md" | "lg" }) {
   const cover = game.cover ?? [];
@@ -196,5 +188,15 @@ export function FaceDown({ name }: { name: string }) {
       <span className="face-down-name">{name}</span>
       <span className="face-down-soon">{t.home.soon}</span>
     </div>
+  );
+}
+
+/** At a game's table: Dineri's name (not a link: leaving is always deliberate) and the language. */
+export function TableChrome() {
+  return (
+    <>
+      <Wordmark />
+      <LanguageMenu />
+    </>
   );
 }

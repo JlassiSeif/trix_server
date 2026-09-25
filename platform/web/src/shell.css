@@ -36,7 +36,8 @@
     radial-gradient(700px 500px at 100% 100%, rgba(30, 95, 168, 0.10), transparent 60%),
     var(--night);
 }
-.hub h1, .hub h2, .hub .eyebrow, .hub .wordmark { font-family: var(--display); }
+.hub h1, .hub h2, .hub .eyebrow { font-family: var(--display); }
+.wordmark { font-family: var(--dineri-font-display); color: var(--dineri-ivory); }
 .hub h1 { font-size: clamp(2.1rem, 5vw, 3.4rem); line-height: 1.05; margin: 0; font-weight: 600; letter-spacing: 0.01em; text-wrap: balance; }
 .hub h2 { font-size: 1.05rem; margin: 0; font-weight: 600; }
 .hub .eyebrow { margin: 0; color: var(--brass-hi); text-transform: uppercase; letter-spacing: 0.16em; font-size: 0.8rem; font-weight: 500; }
@@ -64,18 +65,18 @@
 
 /* Language: a small globe menu. */
 .lang-menu { position: relative; }
-.hub .lang-button {
-  display: inline-flex; align-items: center; gap: 6px; padding: 0.4rem 0.65rem; border-radius: 999px; font-weight: 500; font-size: 0.9rem;
-  background: transparent; color: var(--text-dim); border: 1px solid var(--panel-line);
+.lang-button {
+  display: inline-flex; align-items: center; gap: 6px; padding: 0.4rem 0.65rem; border-radius: 999px; font-weight: 500; font-size: 0.9rem; box-shadow: none;
+  background: transparent; color: var(--dineri-text-dim); border: 1px solid color-mix(in srgb, var(--dineri-ivory) 16%, transparent);
 }
-.hub .lang-button:hover { color: var(--ivory); filter: none; }
+.lang-button:hover { color: var(--dineri-ivory); filter: none; }
 .lang-list {
   position: absolute; inset-inline-end: 0; top: calc(100% + 6px); z-index: 50; margin: 0; padding: 6px; list-style: none; min-width: 150px;
-  background: var(--night-2); border: 1px solid var(--panel-line); border-radius: 14px; box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+  background: var(--dineri-night-2); border: 1px solid color-mix(in srgb, var(--dineri-ivory) 16%, transparent); border-radius: 14px; box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
 }
-.hub .lang-list button { width: 100%; text-align: start; background: transparent; color: var(--text); font-weight: 400; padding: 0.55rem 0.75rem; border-radius: 9px; }
-.hub .lang-list button:hover { background: rgba(255, 244, 222, 0.08); filter: none; }
-.hub .lang-list button[aria-checked="true"] { color: var(--brass-hi); font-weight: 600; }
+.lang-list button { width: 100%; text-align: start; background: transparent; box-shadow: none; color: var(--dineri-text); font-weight: 400; padding: 0.55rem 0.75rem; border-radius: 9px; }
+.lang-list button:hover { background: color-mix(in srgb, var(--dineri-ivory) 8%, transparent); filter: none; }
+.lang-list button[aria-checked="true"] { color: var(--dineri-brass-hi); font-weight: 600; }
 
 /* The account: "Sign in", or your initial. */
 .hub button.sign-in { padding: 0.45rem 0.9rem; border-radius: 999px; font-size: 0.9rem; font-weight: 500; }
@@ -297,7 +298,7 @@ button.google {
 @media (max-width: 420px) {
   .topbar { padding: 14px 16px; }
   .topbar .back { display: none; }
-  .hub .lang-button { padding: 0.4rem 0.55rem; }
+  .lang-button { padding: 0.4rem 0.55rem; }
   .hub button.sign-in { padding: 0.4rem 0.75rem; }
   .wordmark { font-size: 1.45rem; }
   .play-panel { padding: 18px; }
@@ -312,3 +313,6 @@ button.google {
 
 /* Arabic letters join: spacing them out breaks the joins, and there are no capitals. */
 :lang(ar) .hub .eyebrow, :lang(ar) .felt-label, :lang(ar) .face-down-soon, :lang(ar) .divider, :lang(ar) .seat-no, :lang(ar) .bot-level h2 { letter-spacing: 0; text-transform: none; }
+
+/* The kit's buttons glow brass; these quieter ones don't. */
+.hub button.secondary, .dialog-close, button.google, .levels button.secondary, .hub-dialog button.secondary { box-shadow: none; }

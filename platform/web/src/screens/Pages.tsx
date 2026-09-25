@@ -22,6 +22,7 @@ const DOCS = texts<{ about: Doc; privacy: Doc; terms: Doc }>({
         { p: ["Dineri is a home for the card and table games played in Tunisian cafés and living rooms. Send your friends a link and you're at the same table, on a phone or a PC. Nobody around? Play against bots, from easy to hard."] },
         { p: ["Trix is the first game on the table. Chkobba, Rami and others are on their way."] },
         { p: ["Dineri is free to play. There is no betting and no real money, ever.", CONTACT.en] },
+        { p: ["Trix's card faces come from GNOME Aisleriot, free software under the GPL (version 3 or later)."] },
       ],
     },
     privacy: {
@@ -56,6 +57,7 @@ const DOCS = texts<{ about: Doc; privacy: Doc; terms: Doc }>({
         { p: ["Dineri réunit les jeux de cartes et de société qu'on joue dans les cafés et les salons tunisiens. Envoyez un lien à vos amis et vous voilà à la même table, sur téléphone ou sur PC. Personne ? Jouez contre des bots, de facile à difficile."] },
         { p: ["Trix est le premier jeu sur la table. Chkobba, Rami et d'autres arrivent."] },
         { p: ["Dineri est gratuit. Aucun pari, aucun argent réel, jamais.", CONTACT.fr] },
+        { p: ["Les faces des cartes de Trix viennent de GNOME Aisleriot, un logiciel libre sous licence GPL (version 3 ou ultérieure)."] },
       ],
     },
     privacy: {
@@ -90,6 +92,7 @@ const DOCS = texts<{ about: Doc; privacy: Doc; terms: Doc }>({
         { p: ["Dineri بيتٌ لألعاب الورق والطاولة التي تُلعب في المقاهي والبيوت التونسية. أرسل رابطًا لأصدقائك فتجلسون إلى الطاولة نفسها، من الهاتف أو الحاسوب. لا أحد متاح؟ العب ضد الروبوتات، من السهل إلى الصعب."] },
         { p: ["Trix أول لعبة على الطاولة، وChkobba وRami وغيرها في الطريق."] },
         { p: ["Dineri مجاني. لا رهان ولا مال حقيقي، أبدًا.", CONTACT.ar] },
+        { p: ["وجوه أوراق Trix مأخوذة من GNOME Aisleriot، وهو برنامج حر برخصة GPL (الإصدار 3 أو أحدث)."] },
       ],
     },
     privacy: {

@@ -1,6 +1,6 @@
 # How games look on Dineri: one house, many rooms
 
-**Status: DRAFT for Seif.** The principle was agreed by Seif on 2026-09-25 ("I do agree"). The details below wait for his approval. Nothing is built from it until then.
+**Status: APPROVED by Seif, 2026-09-25** (principle and details, with his answers in §5).
 
 Every game on Dineri lives in the same house. The frame, the type, the colours, the controls and the way players are shown are shared, so moving from the hub into any game feels like one place. Inside that frame, each game furnishes its own room: its playing surface, its pieces, one accent colour, and later its sounds. A game is never a separate site with its own logo.
 
@@ -49,7 +49,10 @@ The Trix table was built before the brand and still shows it: the system font, i
 6. **Card backs:** Dineri's back instead of Aisleriot's.
 7. **Checks:** every existing test, the browser flows, full games at phone and desktop size, and before/after screenshots in English, French and Arabic.
 
-## 5. Questions for Seif
-1. **The contract icons** are your hand-drawn tiles from the 2023 game. Keep them as they are (on an ivory tile in the new style), or have them redrawn in the brand's style (drafts for you to approve)?
-2. **Card faces:** Trix still uses the faces from GNOME Aisleriot (GPL-3.0-or-later; credited in the README, and the site should credit them too, e.g. on the About page). Keep them for now, or plan Dineri's own faces (a design task, later)? Backs change either way.
-3. **Accent colours:** Trix takes felt green. Fine to assign the others game by game, when each game arrives?
+## 5. Seif's answers (2026-09-25)
+1. **Contract icons:** keep Seif's own hand-drawn tiles from the 2023 game, as drawn, set on an ivory tile in the new style. Only their grey canvas goes; every stroke stays.
+2. **Card faces:** keep GNOME Aisleriot's faces for now (GPL-3.0-or-later), credited on the site's About page as well as the README; Dineri's own card faces go on the TODO as a later design task. The backs become Dineri's now.
+3. **Accents:** Trix's is felt green; the other games' are chosen from the brand's colours as each game arrives.
+
+## Notes
+- **Tints:** a brand colour mixed with ivory, night or transparency (for example a lighter green for "good" on the night panel, where the felt green itself is too dark to read) counts as the brand's colour. No new hues.

@@ -1,62 +1,126 @@
-/* The shared kit: colours, buttons, inputs, overlays and panels, banners. Every game uses these. */
+/* The shared kit, in Dineri's style (docs/game-look.md): colours, type, buttons, inputs, chips,
+   seats, overlays and panels. Every game's table builds on these. Only the brand's tokens here:
+   no hex codes, no other typefaces (a test checks it). */
+@import "@dineri/brand/tokens.css";
+
 :root {
-  --felt: #0f5132;
-  --felt-dark: #0a3a24;
-  --ink: #1d2320;
-  --paper: #fbf7ee;
-  --gold: #f2c14e;
-  --red: #c0392b;
-  --green: #1e8449;
-  --muted: #7d8a84;
-  --side: #10201b;
+  /* What games use. Tints of the brand's colours count as the brand's (game-look.md, Notes). */
+  --k-night: var(--dineri-night);
+  --k-raised: var(--dineri-night-2);
+  --k-text: var(--dineri-text);
+  --k-dim: var(--dineri-text-dim);
+  --k-line: color-mix(in srgb, var(--dineri-ivory) 16%, transparent);
+  --k-wash: color-mix(in srgb, var(--dineri-ivory) 7%, transparent);
+  --k-veil: color-mix(in srgb, var(--dineri-night) 62%, transparent);
+  --k-brass: var(--dineri-brass);
+  --k-brass-hi: var(--dineri-brass-hi);
+  --k-ivory: var(--dineri-ivory);
+  --k-ivory-top: color-mix(in srgb, var(--dineri-ivory) 55%, white);
+  --k-ink: var(--dineri-ink);
+  --k-ink-dim: color-mix(in srgb, var(--dineri-ink) 62%, var(--dineri-ivory));
+  --k-ink-line: color-mix(in srgb, var(--dineri-ink) 14%, transparent);
+  /* Meanings, the same in every game: good for you, against you, a warning. */
+  --k-good: color-mix(in srgb, var(--dineri-felt-hi) 40%, var(--dineri-ivory));
+  --k-bad: color-mix(in srgb, var(--dineri-red) 72%, var(--dineri-ivory));
+  --k-good-ink: var(--dineri-felt);
+  --k-bad-ink: var(--dineri-red);
+  --k-warn: var(--dineri-lamp);
+  --k-display: var(--dineri-font-display);
+  --k-body: var(--dineri-font-body);
   --card-w: 84px;
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  color: var(--ink);
-  background: var(--felt-dark);
+
+  font-family: var(--k-body);
+  color: var(--k-text);
+  background: var(--k-night);
 }
 * { box-sizing: border-box; }
 html, body, #root { margin: 0; height: 100%; }
-body { background: var(--felt-dark); }
-button {
-  font: inherit; font-weight: 600; border: 0; border-radius: 8px; padding: 0.55rem 1rem;
-  background: var(--gold); color: #2a1f00; cursor: pointer;
-}
-button:hover:not(:disabled) { filter: brightness(1.08); }
-button:disabled { opacity: 0.5; cursor: default; }
-button.secondary { background: #e3ddd0; color: var(--ink); }
-button.danger { background: var(--red); color: white; }
-.leave-confirm { background: rgba(0,0,0,0.3); border-radius: 10px; padding: 0.6rem 0.8rem; font-size: 0.9rem; }
-.leave-confirm p { margin: 0 0 0.5rem; }
-button.link { background: none; color: inherit; text-decoration: underline; opacity: 0.75; padding: 0.3rem 0; }
-button.icon { background: none; color: inherit; padding: 0 0.4rem; font-size: 1.1rem; opacity: 0.7; }
-input { font: inherit; padding: 0.55rem 0.7rem; border-radius: 8px; border: 1px solid #c9c2b2; }
-.muted { color: var(--muted); }
-.small { font-size: 0.8rem; }
-.error { color: #ffb3a7; }
-.notice { background: #fff3cd; color: #5c4400; padding: 0.6rem 0.8rem; border-radius: 8px; }
-.row { display: flex; gap: 0.6rem; flex-wrap: wrap; justify-content: center; }
-.chip { font-size: 0.7rem; padding: 0.05rem 0.4rem; border-radius: 999px; background: rgba(255,255,255,0.15); }
-.chip.warn { background: #b9770e; color: white; }
+body { background: var(--k-night); }
+h1, h2, h3 { font-family: var(--k-display); font-weight: 600; }
 
+/* Buttons: brass for the main action; secondary; danger; plain links and icons. */
+button {
+  font: inherit; font-weight: 600; border: 0; border-radius: 12px; padding: 0.6rem 1.1rem; cursor: pointer;
+  background: linear-gradient(180deg, var(--k-brass-hi), var(--k-brass)); color: var(--k-ink);
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--k-brass) 28%, transparent);
+}
+button:hover:not(:disabled) { filter: brightness(1.06); }
+button:disabled { opacity: 0.5; cursor: default; }
+button.secondary { background: var(--k-wash); color: var(--k-text); border: 1px solid var(--k-line); box-shadow: none; }
+button.danger { background: var(--dineri-red); color: var(--k-ivory); box-shadow: 0 4px 14px color-mix(in srgb, var(--dineri-red) 30%, transparent); }
+button.link { background: none; box-shadow: none; color: inherit; text-decoration: underline; opacity: 0.75; padding: 0.3rem 0; font-weight: 500; }
+button.icon { background: none; box-shadow: none; color: inherit; padding: 0 0.4rem; font-size: 1.1rem; opacity: 0.7; }
+button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid var(--k-brass-hi); outline-offset: 2px; }
+input { font: inherit; padding: 0.6rem 0.8rem; border-radius: 12px; border: 1px solid transparent; background: var(--k-ivory-top); color: var(--k-ink); }
+
+.muted { color: var(--k-dim); }
+.small { font-size: 0.8rem; }
+.error { color: var(--k-bad); }
+.bad { color: var(--k-bad); font-weight: 700; }
+.good { color: var(--k-good); font-weight: 700; }
+.notice {
+  padding: 0.6rem 0.9rem; border-radius: 12px; color: var(--k-ivory);
+  background: color-mix(in srgb, var(--k-brass) 16%, var(--k-raised)); border: 1px solid color-mix(in srgb, var(--k-brass) 45%, transparent);
+}
+.row { display: flex; gap: 0.6rem; flex-wrap: wrap; justify-content: center; }
+.chip { font-size: 0.7rem; padding: 0.05rem 0.45rem; border-radius: 999px; background: color-mix(in srgb, var(--k-ivory) 14%, transparent); white-space: nowrap; }
+.chip.warn { background: var(--k-warn); color: var(--k-ink); }
+.pips { color: var(--dineri-red); letter-spacing: 0.08em; }
+.chip.bot .pips { color: var(--k-bad); font-size: 0.65rem; }
+.leave-confirm { background: var(--k-veil); border: 1px solid var(--k-line); border-radius: 12px; padding: 0.6rem 0.8rem; font-size: 0.9rem; }
+.leave-confirm p { margin: 0 0 0.5rem; }
 .invite { display: flex; gap: 0.5rem; }
 .invite input { flex: 1; min-width: 0; }
 
-/* Banners and windows over a table */
+/* Seats (docs/game-look.md: the same in every game). */
+.seat-tag {
+  display: inline-flex; flex-direction: column; align-items: center; gap: 0.15rem; padding: 0.35rem 0.85rem; max-width: 100%;
+  background: var(--k-veil); border: 1px solid var(--k-line); border-radius: 14px; color: var(--k-text);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.seat-tag.turn { border-color: var(--k-brass-hi); box-shadow: 0 0 0 1px var(--k-brass-hi), 0 0 20px color-mix(in srgb, var(--k-brass-hi) 50%, transparent); }
+.seat-name { font-family: var(--k-display); font-weight: 600; font-size: 1.02rem; line-height: 1.2; }
+.seat-you { font-family: var(--k-body); font-weight: 400; font-size: 0.8em; color: var(--k-dim); }
+.seat-tag.you .seat-name { color: var(--k-brass-hi); }
+.owner-crown { color: var(--k-brass-hi); }
+.seat-meta { display: flex; gap: 0.4rem; font-size: 0.76rem; color: var(--k-dim); flex-wrap: wrap; justify-content: center; align-items: center; }
+
+/* Dineri's name and the language menu at a table. */
+.table-header { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; padding-bottom: 0.2rem; }
+.table-header .wordmark { font-size: 1.35rem; }
+
+/* Banners and windows over a table. Windows are ivory cards (the moments that ask for attention). */
 .toast {
   position: absolute; top: 18%; left: 50%; transform: translateX(-50%); z-index: 25; display: flex; align-items: center; gap: 0.8rem;
-  background: var(--paper); color: var(--ink); padding: 0.7rem 1.2rem; border-radius: 14px; font-size: 1.3rem; font-weight: 700;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.45); animation: pop 0.25s ease-out; pointer-events: none;
+  background: linear-gradient(170deg, var(--k-ivory-top), var(--k-ivory)); color: var(--k-ink); padding: 0.7rem 1.3rem; border-radius: 16px;
+  font-family: var(--k-display); font-size: 1.3rem; font-weight: 600;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--k-brass) 55%, transparent), 0 14px 34px rgba(0, 0, 0, 0.45); animation: pop 0.25s ease-out; pointer-events: none;
 }
 @keyframes pop { from { transform: translateX(-50%) scale(0.85); opacity: 0; } }
-.overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.55); display: flex; align-items: center; justify-content: center; z-index: 30; padding: 1rem; }
-.overlay.light { background: rgba(0,0,0,0.25); }
-.panel { background: var(--paper); color: var(--ink); border-radius: 16px; padding: 1.2rem 1.4rem; box-shadow: 0 16px 50px rgba(0,0,0,0.5); max-width: 560px; width: 100%; text-align: center; }
-.panel h2 { margin: 0.2rem 0; }
-.bad { color: var(--red); font-weight: 700; }
-.good { color: var(--green); font-weight: 700; }
-.offline { position: absolute; top: 0; left: 0; right: 0; background: var(--red); color: white; text-align: center; padding: 0.3rem; z-index: 40; }
+.overlay { position: absolute; inset: 0; background: var(--k-veil); backdrop-filter: blur(2px); display: flex; align-items: center; justify-content: center; z-index: 30; padding: 1rem; }
+.overlay.light { background: color-mix(in srgb, var(--dineri-night) 30%, transparent); backdrop-filter: none; }
+.panel {
+  background: linear-gradient(165deg, var(--k-ivory-top), var(--k-ivory) 55%, var(--dineri-ivory-lo)); color: var(--k-ink);
+  border-radius: 20px; padding: 1.3rem 1.5rem; max-width: 560px; width: 100%; text-align: center;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--k-brass) 50%, transparent), 0 24px 60px rgba(0, 0, 0, 0.55);
+}
+.panel h2 { margin: 0.2rem 0; font-size: 1.5rem; }
+.panel h3 { margin: 0 0 0.4rem; }
+.panel .muted { color: var(--k-ink-dim); }
+.panel .bad { color: var(--k-bad-ink); }
+.panel .good { color: var(--k-good-ink); }
+.panel button.secondary { background: color-mix(in srgb, var(--k-ink) 7%, transparent); color: var(--k-ink); border-color: var(--k-ink-line); }
+.panel input { background: white; border-color: var(--k-ink-line); }
+.offline { position: absolute; top: 0; left: 0; right: 0; background: var(--dineri-red); color: var(--k-ivory); text-align: center; padding: 0.3rem; z-index: 40; }
 
+/* Arabic letters join: no spacing them out, no capitals. */
+:lang(ar) .chip, :lang(ar) .seat-meta { letter-spacing: 0; text-transform: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .toast { animation: none; }
+  .seat-tag { transition: none; }
+}
 @media (max-width: 600px) {
   .overlay { padding: 0.6rem; }
-  .panel { padding: 0.9rem 0.8rem; max-height: calc(100dvh - 1.2rem); overflow-y: auto; }
+  .panel { padding: 1rem 0.9rem; max-height: calc(100dvh - 1.2rem); overflow-y: auto; }
 }

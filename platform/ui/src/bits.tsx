@@ -65,3 +65,12 @@ export function LeaveButton({ onLeave }: { onLeave: () => void }) {
     </div>
   );
 }
+
+/** A bot's level as diamonds: easy ♦, medium ♦♦, hard ♦♦♦. */
+export function Pips({ n }: { n: number }) {
+  return (
+    <span className="pips" aria-hidden>
+      {"♦".repeat(n)}
+    </span>
+  );
+}
