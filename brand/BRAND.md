@@ -2,6 +2,8 @@
 
 **Status: LOCKED.** Approved by Seif on 2026-09-25 ("I really love the look… lock in the visual identity"). Nothing in this folder changes without Seif's OK (§9). The lock test (`brand/test/lock.test.ts`) fails if any logo, icon, token or website copy differs from its fingerprint in `LOCK.json`.
 
+**Browsable version** (tokens, logos, components with previews, voice): the Dineri Design System at https://claude.ai/artifact/7YpxM6JghE9dAAL3WYciDp (private until Seif shares it). This file and the assets in this folder are the source; the browsable version is built from them.
+
 ## 1. The name
 **Dineri** is Seif's hub for Tunisian card and table games, at **dineri.world**. It's named after *dineri*, the diamonds contract in Trix, and the red diamond is our mark.
 
