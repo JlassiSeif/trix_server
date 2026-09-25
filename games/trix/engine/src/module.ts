@@ -8,7 +8,7 @@ import { placeholderBotAction } from "./bot";
 import { applyAction, createGame, legalActions, privateTo, type GameEvent, type GameState } from "./game";
 import { viewFor, type PlayerView } from "./view";
 
-export const TRIX_VERSION = "1.0.0";
+export const TRIX_VERSION = "1.1.0";
 
 /** Pacing at normal speed, so everyone can follow what the bots do (docs/bots.md §1). */
 export const TRIX_PACE = {
