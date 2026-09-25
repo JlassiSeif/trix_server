@@ -9,4 +9,4 @@ export const GAMES: GameUI[] = [trixUI];
 export const gameById = (id: string | null | undefined) => GAMES.find((g) => g.id === id) ?? null;
 
 /** On the home page as "coming soon" (TODO.md). Trademarked names wait for our own names. */
-export const COMING_SOON = ["Chkobba", "Rami", "Bent w wled", "Dominos", "Loup garou", "Pablo", "Jhayech", "Tekdheb", "The goose game"];
+export const COMING_SOON = ["Chkobba", "Rami", "Belote", "Bent w wled", "Dominos", "Loup garou", "Pablo", "Jhayech", "Tekdheb", "The goose game"];

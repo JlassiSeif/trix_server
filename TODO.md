@@ -10,7 +10,8 @@ A home for Tunisian card and table games, played with friends or against bots, a
 | Game | Status | Folder | Version |
 |---|---|---|---|
 | Trix | Live | [games/trix](games/trix) ([TODO](games/trix/TODO.md), [CHANGELOG](games/trix/CHANGELOG.md)) | 1.1.0 |
-| Chkobba, rami, bent walad, loup garou, dominos, tekdheb, an Uno-style game, a Monopoly-style game, jhayech, Pablo, the goose game | Wanted (Seif's friends, 2026-09-24); each starts with a rules walkthrough with Seif | | |
+| Chkobba, rami, Pablo, belote | **Next** (Seif, 2026-09-25: finish these four card games); each starts with a rules walkthrough with Seif | | |
+| Bent walad, loup garou, dominos, tekdheb, an Uno-style game, a Monopoly-style game, jhayech, the goose game | Wanted (Seif's friends, 2026-09-24) | | |
 
 Adding a game: [docs/adding-a-game.md](docs/adding-a-game.md). How games look: [docs/game-look.md](docs/game-look.md).
 
@@ -37,6 +38,7 @@ The phases are in [docs/architecture.md](docs/architecture.md) §13. Applies to 
 - **Customization:** card backs, card faces and shapes, table art, and each player's own corner of the table.
 - **Ladders:** rankings per game, seasons.
 - **Events:** tournaments where people win things (cosmetics, badges, sponsor prizes; never cash, which would be gambling law).
+- **A mobile app** (Seif, 2026-09-25: down the line): Dineri on the phone's home screen and in the app stores. The site already has its app icons and web manifest.
 - **Monetization:** the customizations above as the main income, plus sponsorship (see the 2026-09-24 conversation).
 
 ## Deployed
