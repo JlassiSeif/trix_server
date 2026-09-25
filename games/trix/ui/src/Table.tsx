@@ -12,9 +12,10 @@ import {
   type Seat,
 } from "@games/trix";
 import type { RoomView } from "@platform/protocol";
-import { InviteLink, LeaveButton, useTick, type Connection } from "@platform/ui";
+import { InviteLink, LeaveButton, dirOf, list, ltr, seatName, useErrorText, useLang, useText, useTick, type Connection } from "@platform/ui";
 import { Card, ContractIcon } from "./cards";
-import { CONTRACT_ORDER, CONTRACT_RULE, cardLabel, describe, multiplierLabel, ordinal } from "./text";
+import { LEVELS } from "./levels";
+import { CONTRACT_ORDER, T, cardLabel, describe } from "./text";
 import "./trix.css";
 
 /** The connection with Trix's views and events. */
@@ -41,6 +42,13 @@ interface Toast {
 const LINGER_MS = 1600;
 const SHORT: Record<Contract, string> = { dineri: "DIN", damet: "DAM", pli: "PLI", farcha: "FAR", ray: "RAY", general: "GEN", trix: "TRX" };
 
+/** Names at this table in the player's language (bots are named after their level). */
+function useNames(room: RoomView): (s: Seat) => string {
+  const t = useText(T);
+  const lang = useLang();
+  return (s: Seat) => seatName(room.seats[s] ?? { kind: "empty", name: null, level: null }, lang, LEVELS) ?? t.seat(s + 1);
+}
+
 export function Table({ conn: anyConn }: { conn: Connection }) {
   const conn = anyConn as TrixConn;
   const room = conn.room!;
@@ -48,7 +56,13 @@ export function Table({ conn: anyConn }: { conn: Connection }) {
   // A Trix room has 4 seats, so the room's seat numbers are Trix seats.
   const me = room.you as Seat;
   const pos = (s: Seat): Position => POSITIONS[(s - me + 4) % 4]!;
-  const name = (s: Seat) => room.seats[s]?.name ?? `Seat ${s + 1}`;
+  const t = useText(T);
+  const lang = useLang();
+  const errorText = useErrorText();
+  const name = useNames(room);
+  // The feed and toasts are written when events arrive, in the language of that moment.
+  const words = useRef({ t, lang });
+  words.current = { t, lang };
 
   const [feed, setFeed] = useState<FeedItem[]>([]);
   const [linger, setLinger] = useState<ShownTrick | null>(null);
@@ -66,8 +80,9 @@ export function Table({ conn: anyConn }: { conn: Connection }) {
     const timers: ReturnType<typeof setTimeout>[] = [];
     const later = (fn: () => void, ms: number) => timers.push(setTimeout(fn, ms));
     const off = onEvents((events: GameEvent[], r: RoomView) => {
-      const nameNow = (s: Seat) => r.seats[s]?.name ?? `Seat ${s + 1}`;
-      const lines = events.map((e) => describe(e, nameNow, r.you as Seat)).filter((t): t is string => t !== null);
+      const { t, lang } = words.current;
+      const nameNow = (s: Seat) => seatName(r.seats[s] ?? { kind: "empty", name: null, level: null }, lang, LEVELS) ?? t.seat(s + 1);
+      const lines = events.map((e) => describe(t, e, nameNow, r.you as Seat)).filter((x): x is string => x !== null);
       if (lines.length) setFeed((f) => [...f, ...lines.map((text) => ({ id: ++counter.current, text }))].slice(-60));
       for (const e of events) {
         const id = ++counter.current;
@@ -81,12 +96,12 @@ export function Table({ conn: anyConn }: { conn: Connection }) {
           setLinger({ cards: e.cards, winner: e.seat });
           later(() => setLinger((cur) => (cur?.cards === e.cards ? null : cur)), LINGER_MS);
         } else if (e.type === "picked") {
-          const who = e.seat === r.you ? "You" : nameNow(e.seat);
-          show({ id, contract: e.contract, text: `${who} chose ${e.contract.toUpperCase()}` });
+          const who = e.seat === r.you ? t.you : nameNow(e.seat);
+          show({ id, contract: e.contract, text: t.toast.chose(who, e.contract) });
         } else if (e.type === "kingDeclared") {
-          show({ id, text: `${e.seat === r.you ? "You" : nameNow(e.seat)} declared the K♥` });
+          show({ id, text: t.toast.declared(e.seat === r.you ? t.you : nameNow(e.seat)) });
         } else if (e.type === "playerFinished") {
-          show({ id, text: `${e.seat === r.you ? "You are" : `${nameNow(e.seat)} is`} out, ${ordinal(e.place)}` }, 2000);
+          show({ id, text: t.toast.out(nameNow(e.seat), e.seat === r.you, t.ordinal(e.place)) }, 2000);
         } else if (e.type === "lastTrickShown") {
           setPeek({ cards: e.cards, winner: e.winner });
           later(() => setPeek((cur) => (cur?.cards === e.cards ? null : cur)), 4000);
@@ -104,12 +119,12 @@ export function Table({ conn: anyConn }: { conn: Connection }) {
   useEffect(() => {
     if (prevOwner.current === room.owner) return;
     prevOwner.current = room.owner;
-    const text = room.owner === me ? "You are now the table owner" : `${name(room.owner as Seat)} is now the table owner`;
+    const text = room.owner === me ? t.toast.ownerYou : t.toast.ownerOther(name(room.owner as Seat));
     const id = ++counter.current;
     setFeed((f) => [...f, { id, text: `${text}.` }].slice(-60));
     setToast({ id, text });
-    const t = setTimeout(() => setToast((cur) => (cur?.id === id ? null : cur)), 3000);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setToast((cur) => (cur?.id === id ? null : cur)), 3000);
+    return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [room.owner]);
 
@@ -120,10 +135,12 @@ export function Table({ conn: anyConn }: { conn: Connection }) {
 
   return (
     <div className="table-screen">
-      <div className={`felt phase-${game.phase}`}>
+      {/* The table keeps its geometry in every language (seats go round the same way); the
+          words on it follow the page's direction. */}
+      <div className={`felt phase-${game.phase}`} dir="ltr">
         <ContractBadge game={game} name={name} />
         <button className="side-toggle secondary" onClick={() => setSideOpen(true)}>
-          Scores
+          {t.scores}
         </button>
         {SEATS.filter((s) => s !== me).map((s) => (
           <Opponent key={s} seat={s} position={pos(s)} room={room} game={game} />
@@ -133,7 +150,7 @@ export function Table({ conn: anyConn }: { conn: Connection }) {
           {game.phase === "picking" &&
             (game.picker === me ? <ContractPicker game={game} onPick={(c) => conn.send({ type: "action", action: { type: "pick", contract: c } })} /> : <Choosing name={name(game.picker)} />)}
           {(game.phase === "tricks" || (game.phase !== "trix" && linger)) && (
-            <TrickArea trick={game.trick.length > 0 || !linger ? { cards: game.trick, winner: null } : linger} pos={pos} name={(s) => (s === me ? "You" : name(s))} />
+            <TrickArea trick={game.trick.length > 0 || !linger ? { cards: game.trick, winner: null } : linger} pos={pos} name={(s) => (s === me ? t.you : name(s))} me={me} />
           )}
           {(game.phase === "trix" || (game.phase === "contractEnd" && game.contract === "trix")) && <TrixBoard game={game} name={name} />}
         </div>
@@ -145,12 +162,12 @@ export function Table({ conn: anyConn }: { conn: Connection }) {
             <div className="me-actions">
               {canDeclare && (
                 <button className="declare" onClick={() => conn.send({ type: "action", action: { type: "declareKing" } })}>
-                  Declare K♥
+                  {t.declareKing}
                 </button>
               )}
               {game.phase === "tricks" && (
                 <button className="secondary" disabled={!canPeek} onClick={() => conn.send({ type: "action", action: { type: "peekLastTrick" } })}>
-                  Last trick ({game.peeksLeft} left)
+                  {t.lastTrickButton(game.peeksLeft)}
                 </button>
               )}
             </div>
@@ -163,7 +180,7 @@ export function Table({ conn: anyConn }: { conn: Connection }) {
                   key={c}
                   id={c}
                   className={myTurn ? (legal ? "legal" : "illegal") : ""}
-                  title={myTurn ? (legal ? `Play ${cardLabel(c)}` : `${cardLabel(c)} can't be played now`) : cardLabel(c)}
+                  title={myTurn ? (legal ? t.play(cardLabel(c)) : t.cantPlay(cardLabel(c))) : cardLabel(c)}
                   onClick={legal ? () => conn.send({ type: "action", action: { type: "play", card: c } }) : undefined}
                 />
               );
@@ -172,7 +189,7 @@ export function Table({ conn: anyConn }: { conn: Connection }) {
         </div>
 
         {toast && (
-          <div className="toast" key={toast.id}>
+          <div className="toast" key={toast.id} dir={dirOf(lang)}>
             {toast.contract && <ContractIcon contract={toast.contract} />}
             <span>{toast.text}</span>
           </div>
@@ -181,21 +198,21 @@ export function Table({ conn: anyConn }: { conn: Connection }) {
         {game.phase === "contractEnd" && room.status !== "paused" && <ContractSummary conn={conn} />}
         {room.status === "finished" && <GameOver conn={conn} />}
         {room.status === "paused" && <Paused conn={conn} />}
-        {!conn.online && <div className="offline">Connection lost. Reconnecting…</div>}
-        <div className="rotate-notice">
+        {!conn.online && <div className="offline" dir={dirOf(lang)}>{t.offline}</div>}
+        <div className="rotate-notice" dir={dirOf(lang)}>
           <span className="big">⟳</span>
-          <strong>Turn your phone upright to play</strong>
-          <span className="muted">The table needs the height.</span>
+          <strong>{t.rotate}</strong>
+          <span className="muted">{t.rotateWhy}</span>
         </div>
       </div>
 
       <aside className={`side ${sideOpen ? "open" : ""}`}>
         <button className="side-close" onClick={() => setSideOpen(false)}>
-          Back to the table
+          {t.backToTable}
         </button>
         <Scoreboard conn={conn} />
         <Feed items={feed} />
-        {conn.error && <p className="error">{conn.error.message}</p>}
+        {conn.error && <p className="error">{errorText(conn.error)}</p>}
         <LeaveButton onLeave={() => conn.send({ type: "leave" })} />
       </aside>
     </div>
@@ -206,51 +223,51 @@ export function Table({ conn: anyConn }: { conn: Connection }) {
 // Around the table
 
 function ContractBadge({ game, name }: { game: PlayerView; name: (s: Seat) => string }) {
+  const t = useText(T);
+  const lang = useLang();
   return (
-    <div className="contract-badge">
-      <div className="contract-no">
-        Contract {game.contractNo} / {game.maxContracts}
-      </div>
+    <div className="contract-badge" dir={dirOf(lang)}>
+      <div className="contract-no">{t.badge.contractNo(game.contractNo, game.maxContracts)}</div>
       {game.contract ? (
         <>
           <ContractIcon contract={game.contract} />
           <div>
             <strong>{game.contract.toUpperCase()}</strong>
             <div className="muted">
-              picked by {name(game.picker)} · {multiplierLabel(game.contract, game.multiplier, game.forced)}
+              {t.badge.pickedBy(name(game.picker))} · {t.multiplier(game.contract, game.multiplier, game.forced)}
             </div>
-            <div className="muted small">{CONTRACT_RULE[game.contract]}</div>
-            {game.kingDeclaredBy !== null && <div className="declared">K♥ declared by {name(game.kingDeclaredBy)}</div>}
+            <div className="muted small">{t.rule[game.contract]}</div>
+            {game.kingDeclaredBy !== null && <div className="declared">{t.badge.declaredBy(name(game.kingDeclaredBy))}</div>}
           </div>
         </>
       ) : (
-        <div className="muted">{name(game.picker)} is picking</div>
+        <div className="muted">{t.badge.picking(name(game.picker))}</div>
       )}
     </div>
   );
 }
 
 function SeatTag({ seat, room, game }: { seat: Seat; room: RoomView; game: PlayerView }) {
+  const t = useText(T);
+  const lang = useLang();
   const info = room.seats[seat]!;
   const turn = game.turn === seat && (game.phase === "tricks" || game.phase === "trix" || game.phase === "picking");
   return (
-    <div className={`seat-tag ${turn ? "turn" : ""}`}>
+    <div className={`seat-tag ${turn ? "turn" : ""}`} dir={dirOf(lang)}>
       <span className="seat-name">
-        {info.name ?? "Empty seat"}
-        {seat === room.you ? " (you)" : ""}
+        {seatName(info, lang, LEVELS) ?? t.tag.emptySeat}
+        {seat === room.you ? t.tag.youSuffix : ""}
       </span>
       <span className="seat-meta">
-        <span title="Total score">{game.totals[seat]} pts</span>
+        <span title={t.tag.totalTitle}>{t.tag.pts(game.totals[seat]!)}</span>
         {(game.phase === "tricks" || game.phase === "contractEnd") && game.contract !== "trix" && (
-          <span title="Tricks won this contract">
-            {game.tricksWon[seat]} trick{game.tricksWon[seat] === 1 ? "" : "s"}
-          </span>
+          <span title={t.tag.tricksTitle}>{t.tag.tricks(game.tricksWon[seat]!)}</span>
         )}
-        {game.picker === seat && game.contract && <span className="chip">picker</span>}
-        {info.kind === "bot" && <span className="chip">bot</span>}
-        {info.botPlaying && <span className="chip warn">bot playing</span>}
-        {info.kind === "human" && !info.connected && <span className="chip warn">away</span>}
-        {game.finishers.includes(seat) && <span className="chip">{ordinal(game.finishers.indexOf(seat) + 1)} out</span>}
+        {game.picker === seat && game.contract && <span className="chip">{t.tag.picker}</span>}
+        {info.kind === "bot" && <span className="chip">{t.tag.bot}</span>}
+        {info.botPlaying && <span className="chip warn">{t.tag.botPlaying}</span>}
+        {info.kind === "human" && !info.connected && <span className="chip warn">{t.tag.away}</span>}
+        {game.finishers.includes(seat) && <span className="chip">{t.tag.out(t.ordinal(game.finishers.indexOf(seat) + 1))}</span>}
       </span>
     </div>
   );
@@ -271,28 +288,34 @@ function Opponent({ seat, position, room, game }: { seat: Seat; position: Positi
 }
 
 function TurnHint({ game, room, name }: { game: PlayerView; room: RoomView; name: (s: Seat) => string }) {
+  const t = useText(T);
+  const lang = useLang();
   if (room.status !== "playing" || game.turn === null) return null;
   if (game.phase !== "tricks" && game.phase !== "trix") return null;
   const mine = game.turn === room.you;
-  let text = mine ? "Your turn" : `${name(game.turn)} is playing…`;
+  let text = mine ? t.turn.yours : t.turn.theirs(name(game.turn));
   if (mine && game.phase === "tricks" && game.trick.length > 0) {
     const led = game.trick[0]!.card;
-    text += ` · follow ${cardLabel(led).slice(-1)} if you can`;
+    text += t.turn.follow(cardLabel(led).slice(-1));
   }
-  if (mine && game.phase === "trix") text += " · place a card on a stack";
-  return <div className={`turn-hint ${mine ? "mine" : ""}`}>{text}</div>;
+  if (mine && game.phase === "trix") text += t.turn.stack;
+  return (
+    <div className={`turn-hint ${mine ? "mine" : ""}`} dir={dirOf(lang)}>
+      {text}
+    </div>
+  );
 }
 
 // ---------------------------------------------------------------------------
 // The middle of the table
 
 function Choosing({ name }: { name: string }) {
+  const t = useText(T);
+  const lang = useLang();
   return (
-    <div className="choosing">
+    <div className="choosing" dir={dirOf(lang)}>
       <div className="spinner" />
-      <p>
-        <strong>{name}</strong> is choosing a contract…
-      </p>
+      <p>{t.choosing(name)}</p>
     </div>
   );
 }
@@ -305,30 +328,30 @@ function ContractPicker({ game, onPick }: { game: PlayerView; onPick: (c: Contra
   // R-GAME-11: trix is due by the 6th pick (used.length 5).
   const trixLeft = !used.includes("trix");
   const trixDue = trixLeft && used.length >= 5;
+  const t = useText(T);
+  const lang = useLang();
   return (
-    <div className="picker">
-      <h2>Choose your contract</h2>
+    <div className="picker" dir={dirOf(lang)}>
+      <h2>{t.picker.title}</h2>
       <p className="muted">
-        {trixDue
-          ? "Trix is due: it must be your 6th pick at the latest."
-          : `Your score in it counts ${remaining === 1 ? "×4 (your last pick)" : "×2"}. Trix is never multiplied.`}
-        {trixLeft && used.length === 4 && " Trix is due by your next pick."}
+        {trixDue ? t.picker.trixDue : t.picker.counts(remaining === 1)}
+        {trixLeft && used.length === 4 && t.picker.trixNext}
       </p>
       <div className="picker-grid">
         {CONTRACT_ORDER.map((c) => {
           const ok = available.has(c);
           const why = used.includes(c)
-            ? "already played"
+            ? t.picker.already
             : trixDue && c !== "trix"
-              ? "trix first"
+              ? t.picker.trixFirst
               : c === "trix" && !ok && !hasJack
-                ? "needs a jack"
+                ? t.picker.needsJack
                 : "";
           return (
             <button key={c} className={`contract-tile ${ok ? "" : "disabled"}`} disabled={!ok} onClick={() => onPick(c)}>
               <ContractIcon contract={c} />
               <strong>{c.toUpperCase()}</strong>
-              <span className="small">{why || CONTRACT_RULE[c]}</span>
+              <span className="small">{why || t.rule[c]}</span>
             </button>
           );
         })}
@@ -337,7 +360,9 @@ function ContractPicker({ game, onPick }: { game: PlayerView; onPick: (c: Contra
   );
 }
 
-function TrickArea({ trick, pos, name }: { trick: { cards: PlayedCard[]; winner: Seat | null }; pos: (s: Seat) => Position; name: (s: Seat) => string }) {
+function TrickArea({ trick, pos, name, me }: { trick: { cards: PlayedCard[]; winner: Seat | null }; pos: (s: Seat) => Position; name: (s: Seat) => string; me: Seat }) {
+  const t = useText(T);
+  const lang = useLang();
   return (
     <div className={`trick ${trick.winner !== null ? "done" : ""}`}>
       {trick.cards.map((p, i) => (
@@ -345,13 +370,18 @@ function TrickArea({ trick, pos, name }: { trick: { cards: PlayedCard[]; winner:
           <Card id={p.card} />
         </div>
       ))}
-      {trick.winner !== null && <div className="trick-label">{name(trick.winner)} {name(trick.winner) === "You" ? "take" : "takes"} it</div>}
+      {trick.winner !== null && (
+        <div className="trick-label" dir={dirOf(lang)}>
+          {t.takes(name(trick.winner), trick.winner === me)}
+        </div>
+      )}
     </div>
   );
 }
 
 /** Trix: four stacks, one per suit, each growing up and down from its jack (R-TRIX-1). */
 function TrixBoard({ game, name }: { game: PlayerView; name: (s: Seat) => string }) {
+  const t = useText(T);
   return (
     <div className="trix">
       {SUITS.map((suit) => {
@@ -361,7 +391,7 @@ function TrixBoard({ game, name }: { game: PlayerView; name: (s: Seat) => string
             {!stack ? (
               <div className="trix-empty">
                 J{cardLabel(card("j", suit)).slice(-1)}
-                <span className="small">not started</span>
+                <span className="small">{t.notStarted}</span>
               </div>
             ) : (
               RANKS.map((r, i) => (i >= stack.low && i <= stack.high ? i : -1))
@@ -376,7 +406,7 @@ function TrixBoard({ game, name }: { game: PlayerView; name: (s: Seat) => string
         <div className="trix-finishers">
           {game.finishers.map((s, i) => (
             <span key={s}>
-              {ordinal(i + 1)}: {name(s)} ({i === 0 ? "−100" : "−50"})
+              {t.ordinal(i + 1)}: {name(s)} ({ltr(i === 0 ? "−100" : "−50")})
             </span>
           ))}
         </div>
@@ -386,22 +416,24 @@ function TrixBoard({ game, name }: { game: PlayerView; name: (s: Seat) => string
 }
 
 function PeekOverlay({ trick, name, me, onClose }: { trick: ShownTrick; name: (s: Seat) => string; me: Seat; onClose: () => void }) {
+  const t = useText(T);
+  const lang = useLang();
   return (
     <div className="overlay light" onClick={onClose}>
-      <div className="panel peek">
-        <h3>Last trick</h3>
+      <div className="panel peek" dir={dirOf(lang)}>
+        <h3>{t.peek.title}</h3>
         <div className="peek-cards">
           {trick.cards.map((p) => (
             <figure key={p.card} className={p.seat === trick.winner ? "winner" : ""}>
               <Card id={p.card} />
               <figcaption>
-                {p.seat === me ? "You" : name(p.seat)}
+                {p.seat === me ? t.you : name(p.seat)}
                 {p.seat === trick.winner ? " ★" : ""}
               </figcaption>
             </figure>
           ))}
         </div>
-        <p className="muted small">★ took the trick · click to close</p>
+        <p className="muted small">{t.peek.legend}</p>
       </div>
     </div>
   );
@@ -415,38 +447,40 @@ function ContractSummary({ conn }: { conn: TrixConn }) {
   const game = conn.game!;
   const now = useTick(250);
   const result = game.history.at(-1);
+  const t = useText(T);
+  const lang = useLang();
+  const name = useNames(room);
   if (!result) return null;
-  const name = (s: Seat) => room.seats[s]?.name ?? `Seat ${s + 1}`;
   const secs = room.continueAt ? Math.max(0, Math.ceil((room.continueAt - now) / 1000)) : 0;
   const waiting = SEATS.filter((s) => room.seats[s]?.kind === "human" && !room.seats[s]!.botPlaying && !room.continued.includes(s));
   const iContinued = room.continued.includes(room.you);
 
   const note = (s: Seat) => {
     const n: string[] = [];
-    if (s === result.picker && result.contract !== "trix") n.push(`picker ×${result.multiplier}`);
-    if (result.kingDeclaredBy === s && result.kingTakenBy !== s) n.push("declared K♥: −50");
-    if (result.contract === "trix" && result.finishers.includes(s)) n.push(`${ordinal(result.finishers.indexOf(s) + 1)} out`);
-    if (result.resetToZero.includes(s)) n.push("hit exactly 1000: back to 0!");
+    if (s === result.picker && result.contract !== "trix") n.push(t.summary.pickerX(result.multiplier));
+    if (result.kingDeclaredBy === s && result.kingTakenBy !== s) n.push(t.summary.declaredPenalty);
+    if (result.contract === "trix" && result.finishers.includes(s)) n.push(t.summary.out(t.ordinal(result.finishers.indexOf(s) + 1)));
+    if (result.resetToZero.includes(s)) n.push(t.summary.reset);
     return n.join(" · ");
   };
 
   return (
     <div className="overlay">
-      <div className="panel summary">
+      <div className="panel summary" dir={dirOf(lang)}>
         <div className="summary-head">
           <ContractIcon contract={result.contract} />
           <div>
-            <h2>{result.contract.toUpperCase()} is over</h2>
-            <p className="muted">picked by {name(result.picker)}</p>
+            <h2>{t.summary.over(result.contract)}</h2>
+            <p className="muted">{t.badge.pickedBy(name(result.picker))}</p>
           </div>
         </div>
         <table>
           <thead>
             <tr>
-              <th>Player</th>
-              <th>Points</th>
-              <th>Counted</th>
-              <th>Total</th>
+              <th>{t.summary.player}</th>
+              <th>{t.summary.points}</th>
+              <th>{t.summary.counted}</th>
+              <th>{t.summary.total}</th>
               <th className="note"></th>
             </tr>
           </thead>
@@ -458,10 +492,7 @@ function ContractSummary({ conn }: { conn: TrixConn }) {
                   {note(s) && <div className="note-inline muted small">{note(s)}</div>}
                 </td>
                 <td>{result.raw[s]}</td>
-                <td className={result.scores[s]! > 0 ? "bad" : result.scores[s]! < 0 ? "good" : ""}>
-                  {result.scores[s]! > 0 ? "+" : ""}
-                  {result.scores[s]}
-                </td>
+                <td className={result.scores[s]! > 0 ? "bad" : result.scores[s]! < 0 ? "good" : ""}>{ltr(`${result.scores[s]! > 0 ? "+" : ""}${result.scores[s]}`)}</td>
                 <td>{result.totals[s]}</td>
                 <td className="note muted small">{note(s)}</td>
               </tr>
@@ -470,11 +501,9 @@ function ContractSummary({ conn }: { conn: TrixConn }) {
         </table>
         <div className="summary-foot">
           <button disabled={iContinued} onClick={() => conn.send({ type: "continue" })}>
-            {iContinued ? "Waiting…" : "Continue"}
+            {iContinued ? t.summary.waiting : t.summary.continue}
           </button>
-          <span className="muted">
-            Next deal in {secs}s{waiting.length > 0 ? ` · waiting for ${waiting.map((s) => (s === room.you ? "you" : name(s))).join(", ")}` : ""}
-          </span>
+          <span className="muted">{t.summary.nextDeal(secs, waiting.map((s) => (s === room.you ? t.summary.youLower : name(s))))}</span>
         </div>
       </div>
     </div>
@@ -485,20 +514,20 @@ function GameOver({ conn }: { conn: TrixConn }) {
   const room = conn.room!;
   const game = conn.game!;
   const st = game.standings;
+  const t = useText(T);
+  const lang = useLang();
+  const name = useNames(room);
   if (!st) return null;
-  const name = (s: Seat) => room.seats[s]?.name ?? `Seat ${s + 1}`;
   const readySeats = SEATS.filter((s) => room.ready.includes(s) || room.seats[s]?.kind === "bot" || room.seats[s]?.botPlaying);
   const iAmReady = room.ready.includes(room.you);
   return (
     <div className="overlay">
-      <div className="panel gameover">
-        <p className="muted">{st.reason === "overLimit" ? "Someone went over 1000." : "All 28 contracts have been played."}</p>
-        <h2 className="loser">
-          {st.losers.map(name).join(" & ")} {st.losers.length > 1 ? "lose" : "loses"}
-        </h2>
-        <p className="loser-score">{st.totals[st.losers[0]!]} points</p>
+      <div className="panel gameover" dir={dirOf(lang)}>
+        <p className="muted">{st.reason === "overLimit" ? t.over.overLimit : t.over.allPlayed}</p>
+        <h2 className="loser">{t.over.lose(list(lang, st.losers.map(name)), st.losers.length > 1)}</h2>
+        <p className="loser-score">{t.over.points(st.totals[st.losers[0]!]!)}</p>
         <p className="winner">
-          Winner{st.winners.length > 1 ? "s" : ""}: <strong>{st.winners.map(name).join(" & ")}</strong> ({st.totals[st.winners[0]!]})
+          {t.over.winners(st.winners.length > 1)}: <strong>{list(lang, st.winners.map(name))}</strong> ({st.totals[st.winners[0]!]})
         </p>
         <ol className="standings">
           {[...st.order].reverse().map((s) => (
@@ -508,11 +537,9 @@ function GameOver({ conn }: { conn: TrixConn }) {
           ))}
         </ol>
         <button disabled={iAmReady} onClick={() => conn.send({ type: "ready" })}>
-          {iAmReady ? "Waiting for the others…" : "Play again"}
+          {iAmReady ? t.over.waitingOthers : t.over.playAgain}
         </button>
-        <p className="muted small">
-          Ready: {readySeats.length}/4 ({readySeats.map(name).join(", ") || "nobody yet"})
-        </p>
+        <p className="muted small">{t.over.ready(readySeats.length, readySeats.length ? list(lang, readySeats.map(name)) : t.over.nobody)}</p>
       </div>
     </div>
   );
@@ -522,29 +549,31 @@ function Paused({ conn }: { conn: TrixConn }) {
   const room = conn.room!;
   const isOwner = room.you === room.owner;
   const emptySeat = room.waitingFor.some((s) => room.seats[s]?.kind === "empty");
-  const names = room.waitingFor.map((s) => room.seats[s]?.name ?? `seat ${s + 1} (empty)`);
+  const t = useText(T);
+  const lang = useLang();
+  const names = room.waitingFor.map((s) => room.seats[s]?.name ?? t.paused.emptySeat(s + 1));
   return (
     <div className="overlay">
-      <div className="panel paused">
-        <h2>Game paused</h2>
-        <p>Waiting for {names.join(", ")}.</p>
+      <div className="panel paused" dir={dirOf(lang)}>
+        <h2>{t.paused.title}</h2>
+        <p>{t.paused.waitingFor(list(lang, names))}</p>
         {isOwner ? (
           <>
             {emptySeat && room.invitePath && (
               <>
-                <p className="muted">Send this new link to whoever should take the empty seat:</p>
+                <p className="muted">{t.paused.newLink}</p>
                 <InviteLink path={room.invitePath} />
               </>
             )}
             <div className="row">
-              <button onClick={() => conn.send({ type: "resumeWithBots" })}>Play on with a bot</button>
+              <button onClick={() => conn.send({ type: "resumeWithBots" })}>{t.paused.playOn}</button>
               <button className="secondary" onClick={() => conn.send({ type: "endGame" })}>
-                End the game
+                {t.paused.end}
               </button>
             </div>
           </>
         ) : (
-          <p className="muted">The table owner can continue with a bot or end the game.</p>
+          <p className="muted">{t.paused.ownerCan}</p>
         )}
       </div>
     </div>
@@ -611,9 +640,10 @@ function Scoreboard({ conn }: { conn: TrixConn }) {
   }, [key]);
 
   const worst = Math.max(...game.totals);
+  const t = useText(T);
   return (
     <section className="scoreboard">
-      <h3>Leaderboard</h3>
+      <h3>{t.board.title}</h3>
       <div className="lb" style={{ height: ROW_H * 4 }}>
         {SEATS.map((s) => (
           <LeaderRow
@@ -631,7 +661,7 @@ function Scoreboard({ conn }: { conn: TrixConn }) {
           />
         ))}
       </div>
-      <p className="muted small">Lowest score leads. Over 1000 and you're out; exactly 1000 resets to 0.</p>
+      <p className="muted small">{t.board.legend}</p>
     </section>
   );
 }
@@ -649,6 +679,8 @@ function LeaderRow(props: {
   showMakeOwner: boolean;
 }) {
   const { seat: s, conn } = props;
+  const t = useText(T);
+  const lang = useLang();
   const room = conn.room!;
   const game = conn.game!;
   const info = room.seats[s]!;
@@ -661,22 +693,22 @@ function LeaderRow(props: {
       className={`lb-row ${s === room.you ? "you" : ""} ${props.rank === 1 ? "leader" : ""} ${props.last ? "last" : ""}`}
       style={{ transform: `translateY(${props.position * ROW_H}px)`, height: ROW_H - 6 }}
     >
-      <div className={`lb-rank ${props.tied ? "tied" : ""}`} title={props.tied ? `tied for ${props.rank}` : undefined}>
-        {props.tied ? `=${props.rank}` : props.rank}
+      <div className={`lb-rank ${props.tied ? "tied" : ""}`} title={props.tied ? t.board.tied(props.rank) : undefined}>
+        {props.tied ? ltr(`=${props.rank}`) : props.rank}
       </div>
       <div className="lb-main">
         <div className="lb-top">
           <span className="lb-name">
             {s === room.owner && (
-              <span className="owner-crown" title="Table owner">
+              <span className="owner-crown" title={t.board.owner}>
                 ♛{" "}
               </span>
             )}
-            {info.name ?? "Empty"}
-            {s === room.you && <span className="muted small"> (you)</span>}
+            {seatName(info, lang, LEVELS) ?? t.board.empty}
+            {s === room.you && <span className="muted small">{t.tag.youSuffix}</span>}
           </span>
           {props.moved !== 0 && (
-            <span className={`lb-move ${props.moved > 0 ? "up" : "down"}`} title={props.moved > 0 ? `up ${props.moved}` : `down ${-props.moved}`}>
+            <span className={`lb-move ${props.moved > 0 ? "up" : "down"}`} title={props.moved > 0 ? t.board.up(props.moved) : t.board.down(-props.moved)}>
               {props.moved > 0 ? "▲" : "▼"}
               {Math.abs(props.moved)}
             </span>
@@ -688,15 +720,12 @@ function LeaderRow(props: {
             <div className={`lb-fill ${level}`} style={{ width: `${danger * 100}%` }} />
           </div>
           {props.delta !== 0 && (
-            <span className={`lb-delta ${props.delta > 0 ? "bad" : "good"}`}>
-              {props.delta > 0 ? "+" : ""}
-              {props.delta}
-            </span>
+            <span className={`lb-delta ${props.delta > 0 ? "bad" : "good"}`}>{ltr(`${props.delta > 0 ? "+" : ""}${props.delta}`)}</span>
           )}
         </div>
         <div className="sb-contracts">
           {CONTRACT_ORDER.map((c) => (
-            <span key={c} className={game.used[s]!.includes(c) ? "used" : ""} title={`${c}: ${game.used[s]!.includes(c) ? "already picked" : "still to pick"}`}>
+            <span key={c} className={game.used[s]!.includes(c) ? "used" : ""} title={t.board.contract(c, game.used[s]!.includes(c))}>
               {SHORT[c]}
             </span>
           ))}
@@ -704,12 +733,12 @@ function LeaderRow(props: {
       </div>
       <div className="lb-actions">
         {props.showMakeOwner && (
-          <button className="icon" title={`Make ${info.name} the table owner`} onClick={() => conn.send({ type: "makeOwner", seat: s })}>
+          <button className="icon" title={t.board.makeOwner(info.name ?? "")} onClick={() => conn.send({ type: "makeOwner", seat: s })}>
             ♛
           </button>
         )}
         {props.showKick && (
-          <button className="icon" title={`Remove ${info.name}`} onClick={() => conn.send({ type: "kick", seat: s })}>
+          <button className="icon" title={t.board.remove(seatName(info, lang, LEVELS) ?? "")} onClick={() => conn.send({ type: "kick", seat: s })}>
             ×
           </button>
         )}
@@ -719,15 +748,16 @@ function LeaderRow(props: {
 }
 
 function Feed({ items }: { items: FeedItem[] }) {
-  const list = useRef<HTMLDivElement>(null);
+  const t = useText(T);
+  const box = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    if (list.current) list.current.scrollTop = list.current.scrollHeight;
+    if (box.current) box.current.scrollTop = box.current.scrollHeight;
   }, [items]);
   return (
     <section className="feed">
-      <h3>What's happening</h3>
-      <div className="feed-list" ref={list}>
-        {items.length === 0 && <p className="muted">Moves and picks will show up here.</p>}
+      <h3>{t.feed.title}</h3>
+      <div className="feed-list" ref={box}>
+        {items.length === 0 && <p className="muted">{t.feed.empty}</p>}
         {items.map((i) => (
           <p key={i.id}>{i.text}</p>
         ))}

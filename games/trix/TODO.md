@@ -16,6 +16,7 @@ Trix's own list. The platform's list, and the index of all games, is the root [T
 
 ## Done
 The history by version is in [CHANGELOG.md](CHANGELOG.md).
+- **Three languages (2026-09-25, not deployed):** the table speaks English, French and Arabic (R-TABLE-9): every line in `ui/src/text.ts`, bots named in your language, numbers kept readable right to left, and the table's layout the same in every language. French and Arabic wording waits for Seif's review (root TODO).
 - **Rules:** `RULES.md` approved by Seif on 2026-09-23; every rule has an ID and tests cite them. R-GAME-11 (trix due by the 6th pick) added 2026-09-24.
 - **Engine:** a pure, seeded state machine, with the golden dineri round from the old code and a fuzz run of random games. Every bug found in the old code is covered by a test.
 - **Bots:** easy, medium and hard (`docs/bots.md`, approved), deciding only from what a player in their seat could know. Arena results in `docs/bots-arena.md`.

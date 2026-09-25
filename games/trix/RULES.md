@@ -115,7 +115,7 @@ The engine implements only what's written here. Every rule has an ID that the te
   3. Ownership only ever goes to a person who is connected right now, never to a bot. If nobody is connected, it passes as soon as someone is.
   4. A previous owner who comes back does **not** get it back automatically; the current owner can hand it back.
 - **R-TABLE-13:** **Play against bots.** From the first screen, a player can start a table against three bots of one level (easy, medium or hard). The game starts at once. The invite link still works, so a friend can take over a bot's seat (R-TABLE-10).
-- **R-TABLE-9:** The interface is in **English** for now. Contracts are shown as `dineri`, `damet`, `pli`, `farcha`, `ray`, `general`, `trix`.
+- **R-TABLE-9:** The interface speaks **English, French and Arabic** (Arabic right to left), chosen by each player (Seif, 2026-09-25). The table itself keeps its layout in every language, so seats go round the same way for everyone. Contracts keep their own names in every language: `dineri`, `damet`, `pli`, `farcha`, `ray`, `general`, `trix`. *(The French and Arabic wording is a first draft for Seif to review.)*
 
 ## 8. Bots
 - **R-BOT-1:** A bot only ever makes legal moves, using the same engine rules as a human player.
@@ -129,3 +129,4 @@ The engine implements only what's written here. Every rule has an ID that the te
 - 2026-09-23: Seif added R-TABLE-12 (ownership passes after the owner leaves or is away 30 s, can be handed over, connected players only, no automatic return).
 - 2026-09-24: Seif added R-GAME-11 (trix is due by the 6th pick), so trix can no longer be kept for the 7th pick to escape its ×4. R-GAME-5 now refers to it.
 - 2026-09-24: Bots built to the approved spec (docs/bots.md): R-BOT-3 replaces the placeholder (R-BOT-2); R-TABLE-10 gains bot levels; R-TABLE-7's stand-in plays at medium; R-TABLE-13 added (Play against bots, spec §8).
+- 2026-09-25: R-TABLE-9: English, French and Arabic, as Seif asked for the hub. The rules of play are unchanged.
