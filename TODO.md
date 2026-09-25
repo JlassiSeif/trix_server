@@ -18,7 +18,7 @@ Adding a game: [docs/adding-a-game.md](docs/adding-a-game.md).
 1. **Deploy the restructure** (architecture phase 1, built 2026-09-25): waiting for Seif to try it.
 2. **Architecture phase 2, fun for every game:** a settings panel (sounds, memes, music, bot chat, 18+ mode off by default), the sound system, chat bubbles and personas. Trix's content: `games/trix/TODO.md`.
 3. **Own machine before going public** (architecture §11). Which machine? Seif's Oracle free account?
-4. **Dineri at dineri.world** (Seif, 2026-09-25): the hub's name is **Dineri** and its address **dineri.world**, with www and trix.rheona.space redirecting to it. Deploy files are ready; Seif sets the DNS at Namecheap (A `@` → 158.180.55.44, CNAME `www` → dineri.world, parking records removed, no AAAA). The switch-over happens with the next deploy Seif calls, at a quiet moment. Seif to confirm, as the box's owner, that a non-rheona.space domain on the fleet's Caddy is fine.
+4. **Dineri at dineri.world** (Seif, 2026-09-25): the hub's name is **Dineri** and its address **dineri.world**, with www and trix.rheona.space redirecting to it. Deploy files are ready; Seif sets the DNS at Namecheap (A `@` → 158.180.55.44, CNAME `www` → dineri.world, parking records removed, no AAAA). The switch-over happens with the next deploy Seif calls, at a quiet moment. DNS set by Seif and verified (2026-09-25); Seif approved serving dineri.world from the Rheona box (he owns both).
 5. **Platform station:** the testing station lives in `games/trix/station`. Its game-independent parts (simulated players, attack scenarios) move to `platform/station` when the second game arrives.
 
 ## Roadmap (Seif, 2026-09-24): if this gets popular, this is where the value is

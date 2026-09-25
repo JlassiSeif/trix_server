@@ -83,7 +83,7 @@ Delete Namecheap's parking records (the URL redirect on `@` and the `www` → `p
 3. `deploy/deploy.sh`: Caddy gets certificates for all three names on the reload. Post-checks: hub 200, hub API 200, both redirects 301.
 4. Tell Seif to share https://dineri.world from now on.
 
-This puts a non-rheona.space domain on the fleet's Caddy. The Rheona contract only foresees `<app>.rheona.space`, so Seif confirms that as the box's owner before the switch-over.
+This puts a non-rheona.space domain on the fleet's Caddy. The Rheona contract only foresees `<app>.rheona.space`; **Seif approved it as the owner of both (2026-09-25).** DNS set by Seif the same day and verified: both names resolve to 158.180.55.44 at Namecheap's nameservers and public resolvers, with no AAAA record.
 
 ## 7. Facts
 Address https://dineri.world (until the switch-over: https://trix.rheona.space). Container `trix-web-1`, network `edge`, data `/home/ubuntu/trix/data/rooms.json` (mode 600, folder 700, uid 1001). Image: Node 24 Alpine, pinned by digest in `deploy/Dockerfile`. Settings are in `deploy/compose.yml` (`TRIX_TRUST_PROXY=private` behind Caddy, `TRIX_ORIGINS`, `TRIX_CLOSED_GAMES`, the heap limit). Deploy history is in the TODO's "Deployed" entries; the full procedure for humans is in `docs/deploy.md`.
