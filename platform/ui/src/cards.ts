@@ -1,11 +1,11 @@
-// The shared card deck (docs/game-look.md): 52 faces and two jokers, GNOME Aisleriot's "bonded"
-// theme (GPL-3.0-or-later) rendered by tools/render-cards.mjs. Every card game uses these ids:
-// "<rank>_<suit>" with rank a 2 3 4 5 6 7 8 9 10 j q k and suit c d h s, plus "joker_red" and
-// "joker_black". Dineri's card back is `cardBackUrl`.
+// The shared card deck: the faces from Seif's 2023 game (archive/client-sdl/assets/cards), which
+// Seif prefers (2026-09-25). Only 7 to ace for now (32 cards); games that need 2–6 or jokers wait
+// for matching faces (docs/games.md). Ids: "<rank>_<suit>" with rank a 2 3 4 5 6 7 8 9 10 j q k and
+// suit c d h s, plus "joker_red" and "joker_black". Dineri's card back is `cardBackUrl`.
 
 const FACES = Object.fromEntries(
-  Object.entries(import.meta.glob<string>("./assets/cards/*.webp", { eager: true, query: "?url", import: "default" })).map(([path, url]) => [
-    path.slice(path.lastIndexOf("/") + 1, -5),
+  Object.entries(import.meta.glob<string>("./assets/cards/*.png", { eager: true, query: "?url", import: "default" })).map(([path, url]) => [
+    path.slice(path.lastIndexOf("/") + 1, -4),
     url,
   ]),
 );

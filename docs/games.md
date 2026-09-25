@@ -28,8 +28,8 @@ Also wanted, with our own names and twists (trademarks): an Uno-style game, a Mo
 
 Every game follows the same steps (adding-a-game.md): **rules** → **engine** (tests per rule, fuzz run) → **bots** → **table screen** (house style) → **icon** into its package → station/browser tests → release. Below: what's particular to each.
 
-- **Chkobba:** 40-card deck (the shared deck without 8, 9, 10). Captures by match or by sum, sweeps (*chkobba*), end-of-round scoring. **Needs teams** (2v2) and **two-seat tables** (1v1). Bots: capture choice and counting cards left, a good fit for the Trix bots' approach.
-- **Rami:** two decks with jokers (the shared deck has both jokers). Melds on the table, an opening minimum (61 or 71), jokers. **Needs variants per table** (61/71), **teams** (2v2), two-seat tables. The biggest engine of the lot; bots need meld search.
+- **Chkobba:** 40-card deck (ace to 7, and J Q K): needs the 2 to 6 faces in the 2023 style. Captures by match or by sum, sweeps (*chkobba*), end-of-round scoring. **Needs teams** (2v2) and **two-seat tables** (1v1). Bots: capture choice and counting cards left, a good fit for the Trix bots' approach.
+- **Rami:** two decks with jokers: needs 2 to 6 and jokers in the 2023 style. Melds on the table, an opening minimum (61 or 71), jokers. **Needs variants per table** (61/71), **teams** (2v2), two-seat tables. The biggest engine of the lot; bots need meld search.
 - **Belote:** 32 cards (same as Trix), trumps, bidding. **Needs teams** and **variants** (Tunis, Sfax). Reuses much of Trix's trick-taking engine and bot ideas.
 - **Pablo** (as commonly played; the walkthrough decides): four face-down cards each, peeking, swapping, calling "Pablo". **Needs tables of any size** (the owner starts when enough have joined). Secrets per player fit the engine as-is (each seat sees only its own view).
 - **Tekdheb** (assumed from its name, "you're lying"; the walkthrough decides): cards played face down with a claim, and calling a lie. Its icon shows that too, and changes if the game is different. One or two decks by player count. **Needs tables of any size.** The bots need to bluff and to judge bluffs.
@@ -43,7 +43,7 @@ Every game follows the same steps (adding-a-game.md): **rules** → **engine** (
 
 | Piece | Status | Games |
 |---|---|---|
-| Shared card deck (52 faces, 2 jokers) | ✅ done (2026-09-25), `platform/ui/src/cards.ts` | Trix, Chkobba, Rami, Belote, Pablo, Tekdheb |
+| Shared card deck | `platform/ui/src/cards.ts`: the 2023 faces Seif prefers, **7 to ace only (32 cards)**. Missing: **2 to 6 and jokers in the same style** (a sharper re-render from another deck was tried and rejected by Seif, 2026-09-25) | Trix, Belote (32 cards: ready); Chkobba (needs 2–6), Rami, Pablo, Tekdheb (need 2–6 and probably jokers) |
 | Dineri's card back | ✅ done | all card games |
 | Game icons | ✅ done: in each game's description, on the home page's cards, the game page and the lobby | all |
 | Teams (partners across, team seating, team scores, bots standing in for their team) | spec in play-modes.md, waiting for approval | Chkobba 2v2, Rami 2v2, Belote, maybe Dominos |
@@ -55,7 +55,7 @@ Every game follows the same steps (adding-a-game.md): **rules** → **engine** (
 | Profiles, friends, parties, quick play, ranked | spec in play-modes.md, waiting for approval | all |
 
 ## 4. The order
-1. **Done now (2026-09-25):** icons for every game, the shared deck, this plan and the list in one place.
+1. **Done now (2026-09-25):** icons for every game, a shared deck in the kit (the 2023 faces, 32 cards), this plan and the list in one place.
 2. **Waiting on Seif:** the rules (Chkobba, Rami, Pablo, Tekdheb, the goose game; Dominos, Dama, Kharbga after his check; Belote later), approval of play-modes.md, and what Bent w wled and Jhayech are.
 3. **Then, platform first:** teams, two-seat tables, tables of any size and variants, proven with the test-only game before a real game depends on them.
 4. **Then the games,** in the order Seif's rules arrive, Chkobba first.
