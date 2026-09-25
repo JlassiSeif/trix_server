@@ -11,6 +11,7 @@
 | **Ranked** | Matched by skill, in a rating per game and mode, with divisions and seasons. Stricter rules about leaving (§5). Never with bots. | Required | Yes |
 
 ## 2. The games
+(What each game needs, beyond modes: [games.md](games.md).)
 
 | Game | Table sizes | Variants | Ranked |
 |---|---|---|---|

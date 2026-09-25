@@ -85,6 +85,14 @@ input { font: inherit; padding: 0.6rem 0.8rem; border-radius: 12px; border: 1px 
 .owner-crown { color: var(--k-brass-hi); }
 .seat-meta { display: flex; gap: 0.4rem; font-size: 0.76rem; color: var(--k-dim); flex-wrap: wrap; justify-content: center; align-items: center; }
 
+/* A game's icon on an ivory tile (its page, its lobby). */
+.game-badge {
+  display: inline-grid; place-items: center; flex: none; border-radius: 12px; color: var(--k-ink);
+  background: var(--k-ivory-top); --icon-bg: var(--k-ivory-top);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--k-brass) 60%, transparent), 0 3px 10px rgba(0, 0, 0, 0.3);
+}
+.game-badge .game-icon { width: 74%; height: 74%; }
+
 /* Dineri's name and the language menu at a table. */
 .table-header { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; padding-bottom: 0.2rem; }
 .table-header .wordmark { font-size: 1.35rem; }

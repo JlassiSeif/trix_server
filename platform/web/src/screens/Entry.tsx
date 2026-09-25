@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { NAME_MAX } from "@platform/protocol";
-import { savedName, useErrorText, useLang, useText, type Connection, type GameUI } from "@platform/ui";
+import { GameBadge, savedName, useErrorText, useLang, useText, type Connection, type GameUI } from "@platform/ui";
 import { useAccount } from "../account";
 import { Fan, Footer, Pips, TopBar } from "../brand";
 import { T } from "../text";
@@ -45,7 +45,10 @@ export function Entry({ conn, game, roomId, invite, go }: { conn: Connection; ga
         <section className="game-intro">
           {game && <Fan game={game} size="lg" />}
           <p className="eyebrow">{joining ? t.entry.invited : game?.players[lang]}</p>
-          <h1>{joining ? t.entry.joinTitle : game?.name}</h1>
+          <h1 className="with-badge">
+            {!joining && game && <GameBadge Icon={game.icon} />}
+            {joining ? t.entry.joinTitle : game?.name}
+          </h1>
           <p className="lede">{joining ? t.entry.joinLede : game?.tagline[lang]}</p>
         </section>
 

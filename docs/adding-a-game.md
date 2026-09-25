@@ -25,11 +25,12 @@ Tests: one or more per rule ID, a fuzz run of random games (always finishes, nev
 `ui/src/index.ts` exports a `GameUI` (`platform/ui`): name, tagline, players, bot levels with a line each, and `loadTable()`, which imports the table screen. The table gets the connection; it types it with the game's own view and events (`Connection<View, Event>`). The shared kit covers the rest: invite link, leave button, overlays, panels.
 
 ### The look
-Every game follows `docs/game-look.md` (one house, many rooms): the kit's controls, panels and seat tag (`SeatTag`), Dineri's card back (`cardBackUrl`), `<TableHeader />` at the top of the side panel, and only the brand's colours and typefaces. The game's own room is its playing surface, its pieces, one accent colour from the brand's set, and its icons. `platform/ui/test/look.test.ts` fails on colours or fonts from outside the brand. Check it with screenshots at desktop and phone size, in all three languages.
+Every game follows `docs/game-look.md` (one house, many rooms): the kit's controls, panels and seat tag (`SeatTag`), the shared deck (`cardFaceUrl`) and Dineri's card back (`cardBackUrl`), its **icon** (`icon` in its `GameUI`, drawn with the kit's `IconSvg`: simple lines in the current colour; its first version is in `platform/web/src/game-icons.tsx` while it's coming soon), `<TableHeader />` at the top of the side panel, and only the brand's colours and typefaces. The game's own room is its playing surface, its pieces, one accent colour from the brand's set, and its icons. `platform/ui/test/look.test.ts` fails on colours or fonts from outside the brand. Check it with screenshots at desktop and phone size, in all three languages.
 
 ## 5. Register it
 - Server: add its module to `platform/server/src/games.ts`.
-- Web: add its `GameUI` to `platform/web/src/games.ts`, and take it off the "coming soon" list there.
+- Web: add its `GameUI` to `platform/web/src/games.ts`, take it off the "coming soon" list there, and move its icon into its own package.
+- `docs/games.md`: its status.
 - Workspaces pick the folder up on their own (`games/*/*`); `deploy/Dockerfile` needs its `package.json` lines.
 
 ## 6. Prove it

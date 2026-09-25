@@ -37,8 +37,8 @@ export function Home({ conn, go }: { conn: Connection; go: (path: string) => voi
           <div className="face-downs">
             <p className="felt-label">{t.home.comingLabel}</p>
             <div className="face-down-grid">
-              {COMING_SOON.map((name) => (
-                <FaceDown key={name} name={name} />
+              {COMING_SOON.map((g) => (
+                <FaceDown key={g.id} name={g.name} Icon={g.Icon} />
               ))}
             </div>
           </div>

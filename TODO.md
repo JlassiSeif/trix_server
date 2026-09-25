@@ -6,15 +6,7 @@ The platform's list, and the index of games. Each game keeps its own list in `ga
 A home for Tunisian card and table games, played with friends or against bots, at **https://dineri.world** (`www.dineri.world` and the old `trix.rheona.space` redirect to it). If it gets popular: accounts, customization, ladders and events (Roadmap).
 
 ## Games
-
-| Game | Status | Folder | Version |
-|---|---|---|---|
-| Trix | Live | [games/trix](games/trix) ([TODO](games/trix/TODO.md), [CHANGELOG](games/trix/CHANGELOG.md)) | 1.1.0 |
-| Chkobba (1v1, 2v2), rami (61, 71; 1v1, 2v2), Pablo (any number, casual), tekdheb (one or two decks, casual), belote (2v2; Tunis and Sfax variants, later) | **Next** (Seif, 2026-09-25); each starts with a rules walkthrough with Seif. Modes: `docs/play-modes.md` | | |
-| Dominos, dama (checkers), kharbga, the goose game | **Quick ones** (Seif, 2026-09-25): Seif is checking how dominos, dama and kharbga are played; he sends the goose game's rules. Each still gets a short rules walkthrough | | |
-| Bent walad, loup garou, an Uno-style game, a Monopoly-style game, jhayech | Wanted (Seif's friends, 2026-09-24) | | |
-
-Adding a game: [docs/adding-a-game.md](docs/adding-a-game.md). How games look: [docs/game-look.md](docs/game-look.md).
+**Every game, what's decided and what it still needs: [docs/games.md](docs/games.md).** Live: **Trix 1.1.0** ([TODO](games/trix/TODO.md), [CHANGELOG](games/trix/CHANGELOG.md)). Next, once Seif's rules arrive: Chkobba, Rami, Pablo, Tekdheb; the quick ones (Dominos, Dama, Kharbga, the goose game); Belote later. Adding a game: [docs/adding-a-game.md](docs/adding-a-game.md). How games look: [docs/game-look.md](docs/game-look.md).
 
 ## Open
 1. **Accounts: Seif's steps in the Firebase console** (project `dineri-world`). Stays here until Seif says (2026-09-25). The code is built and tested against the emulators; until these are done the live site simply has no sign-in.
@@ -56,5 +48,6 @@ The phases are in [docs/architecture.md](docs/architecture.md) §13. Applies to 
 - **Security review:** `docs/security.md`. Per-address limits, a lockout on guessing, an origin check, unique names, HTTP hardening, sign-in tokens checked on the server, the database closed to browsers; npm audit clean.
 - **Pre-deployment check:** `docs/predeploy-check.md`. Games survive restarts, lost tables are handled, two tabs can't fight over one seat, caps plus security and cache headers.
 - **Hosting:** a guest container on the shared Rheona VPS, under the box's rules (`deploy/new_tenant.md`). `deploy/deploy.sh` builds, ships, proves the container, reloads Caddy only when needed and runs the post-checks; `docs/deploy.md` covers the rest.
+- **Every game has an icon, one deck for all card games, one plan (2026-09-25):** an icon per game in the house style (in each game's description, on the home page's cards, the game page and the lobby); the full shared deck (52 faces and both jokers, rendered sharper from the same Aisleriot art, `platform/ui/tools/render-cards.mjs`), which Trix now uses; `docs/games.md` as the one page per game.
 - **Smaller things:** abandoned tables make way at the 5-tables-per-address limit (2026-09-24); "Tehchi fih" is now **Tekdheb** on the coming-soon list (Seif, 2026-09-25).
 - **Last full check (2026-09-25, premoves):** unit tests 153/153 plus 3 against the emulators, typecheck and build clean, browser flows 17/17, premove flow 10/10 at three sizes, full games against bots at desktop and phone size. Accounts flow 27/27 and station 31/31 as of the house-style and accounts checks earlier the same day (neither changed since).

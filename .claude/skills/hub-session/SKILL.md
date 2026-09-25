@@ -51,7 +51,7 @@ Seif owns this project. He's the product owner and the source of the rules; Clau
 | `games/trix` | Trix: `engine/` (rules, bots, module.ts), `ui/`, `station/` (station, arena, mutants), `docs/`, RULES/TODO/CHANGELOG |
 | `deploy/` | Dockerfile, compose.yml, trix.caddy, deploy.sh. `deploy/new_tenant.md` is the Rheona box owner's rules: git-excluded, never commit it |
 | `brand/` | Dineri's locked identity: BRAND.md, tokens, logos, icons, share image, LOCK.json |
-| `docs/` | architecture, adding-a-game, game-look (how games look), deploy, security, predeploy-check |
+| `docs/` | games (every game: decided, done, needed), play-modes (draft), architecture, adding-a-game, game-look (how games look), deploy, security, predeploy-check |
 | `archive/` | The 2023 C++/SDL code: reference only |
 
 Adding a game follows `docs/adding-a-game.md`, starting with a rules walkthrough with Seif.

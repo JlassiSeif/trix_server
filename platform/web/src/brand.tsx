@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ComponentType } from "react";
 import { LANGS, useLang, useText, type GameUI, type Lang } from "@platform/ui";
 export { Pips } from "@platform/ui";
 import { account, useAccount } from "./account";
@@ -178,12 +178,14 @@ export function Fan({ game, size = "md" }: { game: GameUI; size?: "md" | "lg" })
 }
 
 /** A game not turned over yet: a face-down card with its name beside it. */
-export function FaceDown({ name }: { name: string }) {
+export function FaceDown({ name, Icon }: { name: string; Icon: ComponentType }) {
   const t = useText(T);
   return (
     <div className="face-down" role="img" aria-label={t.home.soonAria(name)}>
       <span className="card-back" aria-hidden>
-        <span className="medallion" />
+        <span className="medallion">
+          <Icon />
+        </span>
       </span>
       <span className="face-down-name">{name}</span>
       <span className="face-down-soon">{t.home.soon}</span>

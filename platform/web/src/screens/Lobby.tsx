@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { InviteLink, LeaveButton, seatName, useErrorText, useLang, useText, type Connection, type GameUI } from "@platform/ui";
+import { GameBadge, InviteLink, LeaveButton, seatName, useErrorText, useLang, useText, type Connection, type GameUI } from "@platform/ui";
 import { Pips, TopBar } from "../brand";
 import { T } from "../text";
 
@@ -21,7 +21,10 @@ export function Lobby({ conn, game }: { conn: Connection; game: GameUI | null })
       <TopBar />
       <main className="lobby-main">
         <header className="lobby-head">
-          <p className="eyebrow">{t.lobby.table(game?.name ?? "")}</p>
+          <p className="eyebrow with-badge">
+            {game && <GameBadge Icon={game.icon} size={30} />}
+            {t.lobby.table(game?.name ?? "")}
+          </p>
           <h1>{full ? t.lobby.full : t.lobby.waiting(empty)}</h1>
           <p className="lede">{t.lobby.startsWhen(room.seats.length)}</p>
         </header>

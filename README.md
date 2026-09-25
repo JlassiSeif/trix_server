@@ -7,6 +7,8 @@ A home for Tunisian card and table games, played with friends through an invite 
 | [TODO.md](TODO.md) | what's open, what's done, what's deployed (each game has its own TODO and changelog) |
 | [docs/architecture.md](docs/architecture.md) | how it's built and why: the game contract, data, accounts, hosting, the order of work |
 | [docs/adding-a-game.md](docs/adding-a-game.md) | the steps for every new game, from the rules walkthrough to the release |
+| [docs/games.md](docs/games.md) | every game: what's decided, what's done, what it still needs |
+| [docs/play-modes.md](docs/play-modes.md) | custom rooms, quick play, ranked; profiles and friends (draft) |
 | [docs/game-look.md](docs/game-look.md) | how games look: one house, many rooms |
 | [brand/BRAND.md](brand/BRAND.md) | Dineri's locked brand: name, logos, colours, type, voice |
 | [docs/deploy.md](docs/deploy.md) | the server, its settings, deploying, rolling back, switching a game off |
@@ -58,4 +60,4 @@ Server logs are JSON lines (`TRIX_LOG_LEVEL=debug|info|warn|error`); `/api/games
 
 Deploying: [docs/deploy.md](docs/deploy.md) (`deploy/deploy.sh`), including switching one game off and rolling one game back.
 
-Trix's card faces: GNOME Aisleriot "bonded" theme (GPL-3.0-or-later), taken from the old client's assets (also credited on the site's About page). The card back is Dineri's own (`platform/ui/src/assets/card-back.svg`).
+Card faces (every card game): GNOME Aisleriot's "bonded" theme (GPL-3.0-or-later), rendered from its vector art by `platform/ui/tools/render-cards.mjs` into `platform/ui/src/assets/cards` (also credited on the site's About page). The card back is Dineri's own (`platform/ui/src/assets/card-back.svg`).

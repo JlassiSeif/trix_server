@@ -7,5 +7,7 @@ export * from "./game-ui";
 export * from "./i18n";
 export * from "./errors";
 export * from "./seat";
+export * from "./cards";
+export * from "./game-icon";
 export * from "./chrome";
 export { default as cardBackUrl } from "./assets/card-back.svg?url";

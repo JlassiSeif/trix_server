@@ -25,6 +25,8 @@ export interface GameUI {
   players: Localized;
   /** Optional: a few images (e.g. cards) laid out as a fan on the game's card on the home page. */
   cover?: string[];
+  /** Its icon (docs/game-look.md: simple lines in the current colour; `IconSvg` from the kit). */
+  icon: ComponentType;
   /** Optional: the letter in the corners of its card on the home page (default: its name's first letter). */
   initial?: string;
   levels: LevelInfo[];
