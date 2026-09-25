@@ -1,0 +1,30 @@
+/* Dineri brand tokens. LOCKED: brand/BRAND.md. Change only with Seif's approval.
+   Every Dineri page takes its colours and typefaces from here. */
+:root {
+  /* Colour */
+  --dineri-night: #0f1722;     /* the room: page background */
+  --dineri-night-2: #17212f;
+  --dineri-felt: #0f4a33;      /* the table */
+  --dineri-felt-hi: #16603f;
+  --dineri-felt-lo: #0a3524;
+  --dineri-brass: #c9a04a;     /* the table's rim, primary buttons, highlights */
+  --dineri-brass-hi: #e6c46f;
+  --dineri-ivory: #f3ead8;     /* cards, light text on dark */
+  --dineri-ivory-lo: #e3d6bc;
+  --dineri-ink: #1d1a15;       /* text on ivory */
+  --dineri-red: #b8322b;       /* the dineri: the mark, suits, "Play" */
+  --dineri-back: #7a1f26;      /* card backs */
+  --dineri-sky: #1e5fa8;       /* Sidi Bou Said blue: a faint ambient glow, never a fill */
+  --dineri-lamp: #ffba68;      /* lamplight: glows only */
+  --dineri-text: #efe7d6;
+  --dineri-text-dim: #a8b1bd;
+
+  /* Type: Reem Kufi for the name and headings, Rubik for everything else (both cover Latin and Arabic). */
+  --dineri-font-display: "Reem Kufi Variable", "Reem Kufi", "Rubik Variable", system-ui, sans-serif;
+  --dineri-font-body: "Rubik Variable", "Rubik", system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  /* Shape */
+  --dineri-radius-card: 16px;
+  --dineri-radius-panel: 20px;
+  --dineri-radius-table: 28px;
+}

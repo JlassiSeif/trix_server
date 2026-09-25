@@ -11,6 +11,7 @@ Seif owns this project. He's the product owner and the source of the rules; Clau
 - **Sources of truth:** the disk, Seif, and the TODO lists. Nothing else. Verify on disk before claiming anything.
 - **Never invent rules or behaviour.** Tunisian games have regional variants; the rules come from Seif. Ask when anything is ambiguous (AskUserQuestion when it blocks work).
 - **Specs before code.** Rules, bot behaviour, personas and architecture are written as a document (DRAFT for Seif), and approved by Seif before anything is built (status line: APPROVED by Seif, date). Changes after approval need his OK and a dated changelog line. Examples: `games/trix/RULES.md`, `games/trix/docs/bots.md`, `docs/architecture.md`.
+- **The brand is locked** (`brand/BRAND.md`, Seif 2026-09-25): logos, colours, typefaces, motifs and voice. Use the tokens and files; never alter them without Seif's words, then rebuild (`node brand/build.mjs`). The lock test fails on any unapproved change.
 - **Approval doesn't carry over.** "Deploy" once isn't "deploy" forever; each deploy needs Seif's go (see the hub-deploy skill).
 - **Say what's true.** Report failures with their output, say what was skipped, never claim a check that didn't run. A check that can't fail is not a check: make sure each new test could fail (the mutation check exists for this).
 
@@ -47,6 +48,7 @@ Seif owns this project. He's the product owner and the source of the rules; Clau
 | `platform/protocol`, `platform/ui`, `platform/web` | Messages; the shared screen kit; the hub site (home, game pages, lobby) |
 | `games/trix` | Trix: `engine/` (rules, bots, module.ts), `ui/`, `station/` (station, arena, mutants), `docs/`, RULES/TODO/CHANGELOG |
 | `deploy/` | Dockerfile, compose.yml, trix.caddy, deploy.sh. `deploy/new_tenant.md` is the Rheona box owner's rules: git-excluded, never commit it |
+| `brand/` | Dineri's locked identity: BRAND.md, tokens, logos, icons, share image, LOCK.json |
 | `docs/` | architecture, adding-a-game, deploy, security, predeploy-check |
 | `archive/` | The 2023 C++/SDL code: reference only |
 

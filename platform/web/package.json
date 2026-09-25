@@ -16,7 +16,8 @@
     "@platform/protocol": "*",
     "@platform/ui": "*",
     "react": "19.3.0",
-    "react-dom": "19.3.0"
+    "react-dom": "19.3.0",
+    "@dineri/brand": "*"
   },
   "devDependencies": {
     "@types/react": "19.3.0",

@@ -3,26 +3,28 @@
    (face up when playable, face down until they're ready). Each game's own table has its own styles. */
 @import "@fontsource-variable/reem-kufi/index.css";
 @import "@fontsource-variable/rubik/index.css";
+/* The locked brand tokens (brand/BRAND.md): every colour and typeface below comes from here. */
+@import "@dineri/brand/tokens.css";
 
 .hub {
-  --night: #0f1722;
-  --night-2: #17212f;
+  --night: var(--dineri-night);
+  --night-2: var(--dineri-night-2);
   --panel: rgba(255, 244, 222, 0.05);
   --panel-line: rgba(233, 214, 175, 0.16);
-  --felt-hi: #16603f;
-  --felt-mid: #0f4a33;
-  --felt-lo: #0a3524;
-  --brass: #c9a04a;
-  --brass-hi: #e6c46f;
-  --ivory: #f3ead8;
-  --ivory-lo: #e3d6bc;
-  --ink: #1d1a15;
-  --card-red: #b3322b;
-  --back: #7a1f26;
-  --text: #efe7d6;
-  --text-dim: #a8b1bd;
-  --display: "Reem Kufi Variable", "Rubik Variable", system-ui, sans-serif;
-  --body: "Rubik Variable", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --felt-hi: var(--dineri-felt-hi);
+  --felt-mid: var(--dineri-felt);
+  --felt-lo: var(--dineri-felt-lo);
+  --brass: var(--dineri-brass);
+  --brass-hi: var(--dineri-brass-hi);
+  --ivory: var(--dineri-ivory);
+  --ivory-lo: var(--dineri-ivory-lo);
+  --ink: var(--dineri-ink);
+  --card-red: var(--dineri-red);
+  --back: var(--dineri-back);
+  --text: var(--dineri-text);
+  --text-dim: var(--dineri-text-dim);
+  --display: var(--dineri-font-display);
+  --body: var(--dineri-font-body);
 
   min-height: 100%;
   display: flex;

@@ -1,0 +1,14 @@
+{
+  "name": "@dineri/brand",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./tokens.css": "./tokens.css",
+    "./tokens.json": "./tokens.json"
+  },
+  "scripts": {
+    "build": "node build.mjs",
+    "test": "vitest run"
+  }
+}
