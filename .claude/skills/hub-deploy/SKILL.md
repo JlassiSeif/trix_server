@@ -40,12 +40,12 @@ Read before any change, every time: `deploy/new_tenant.md` (the box owner's rule
 ```bash
 deploy/deploy.sh
 ```
-It refuses a dirty tree, a `ports:` line or wrong DNS. It builds `trix-web:<sha>` from `git archive HEAD` and keeps a copy in `.deploy/`. It ships the image with `docker load`, tagging the previous `latest` as `prev`, copies `deploy/compose.yml` and starts our container only. It proves `trix-web-1` answers on `edge` before Caddy is involved, installs the site file only if it changed (validate, then reload; if that fails it removes our file again), and asserts each post-check on its own: registry 401, license 404, install.sh 200, Trix 200, Trix API 200.
+It refuses a dirty tree, a `ports:` line or wrong DNS. It builds `trix-web:<sha>` from `git archive HEAD` and keeps a copy in `.deploy/`. It ships the image with `docker load`, tagging the previous `latest` as `prev`, copies `deploy/compose.yml` and starts our container only. It proves `trix-web-1` answers on `edge` before Caddy is involved, installs the site file only if it changed (validate, then reload; if Caddy rejects it, the previous file goes back), and asserts each post-check on its own: the neighbours (registry 401, license 404, install.sh 200), then ours (hub 200, hub API 200, www.dineri.world and trix.rheona.space 301).
 
 Games in progress survive: rooms are saved and restored, and players see "Reconnecting…" for a moment.
 
 ## 4. After every deploy
-1. **Live check in a real browser** against https://trix.rheona.space: open the hub, open a game page, play a few moves against bots (a small Playwright script in `platform/web/e2e/`, deleted afterwards), and make sure there are no page errors. Leave the table afterwards.
+1. **Live check in a real browser** against https://dineri.world (before the switch-over: https://trix.rheona.space): open the hub, open a game page, play a few moves against bots (a small Playwright script in `platform/web/e2e/`, deleted afterwards), and make sure there are no page errors. Leave the table afterwards.
 2. **The server's view:**
    ```bash
    ssh -i ~/.ssh/rheona -o IdentitiesOnly=yes ubuntu@158.180.55.44 'docker logs trix-web-1 2>&1 | grep -E "state.restored|server.listening|bot.crashed|bot.illegalMove|\"level\":\"error\"" | tail; docker stats --no-stream --format "{{.Name}} {{.MemUsage}}" trix-web-1; docker inspect trix-web-1 --format "{{.State.Health.Status}} {{json .NetworkSettings.Ports}}"'
