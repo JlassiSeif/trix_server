@@ -60,4 +60,4 @@ Server logs are JSON lines (`TRIX_LOG_LEVEL=debug|info|warn|error`); `/api/games
 
 Deploying: [docs/deploy.md](docs/deploy.md) (`deploy/deploy.sh`), including switching one game off and rolling one game back.
 
-Card faces (every card game, `platform/ui/src/assets/cards`): the faces from Seif's 2023 game (`archive/client-sdl/assets/cards`), which came with GNOME Aisleriot's card backs and look like an older Aisleriot theme (GPL); the exact source is to confirm with Seif. Credited on the site's About page. The card back is Dineri's own (`platform/ui/src/assets/card-back.svg`).
+Card faces (every card game, `platform/ui/src/assets/cards`): GNOME Aisleriot's original "bonded" deck (GPL), as in Seif's 2023 game (Aisleriot on Ubuntu, 2023). 7 to ace are the 2023 files; 2 to 6 and the jokers were cut from the same deck by `platform/ui/tools/cards-from-aisleriot.mjs`. (Ubuntu replaces that deck's `bonded.svg` with a different design; the original is `bonded.svgz`.) Credited on the site's About page. The card back is Dineri's own (`platform/ui/src/assets/card-back.svg`).

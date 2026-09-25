@@ -1,6 +1,6 @@
-// The shared card deck: the faces from Seif's 2023 game (archive/client-sdl/assets/cards), which
-// Seif prefers (2026-09-25). Only 7 to ace for now (32 cards); games that need 2–6 or jokers wait
-// for matching faces (docs/games.md). Ids: "<rank>_<suit>" with rank a 2 3 4 5 6 7 8 9 10 j q k and
+// The shared card deck: GNOME Aisleriot's original "bonded" deck (GPL), the faces of Seif's 2023
+// game, which he prefers (2026-09-25). 7 to ace are the 2023 files themselves; 2 to 6 and the two
+// jokers were cut from the same deck the same way (tools/cards-from-aisleriot.mjs). Ids: "<rank>_<suit>" with rank a 2 3 4 5 6 7 8 9 10 j q k and
 // suit c d h s, plus "joker_red" and "joker_black". Dineri's card back is `cardBackUrl`.
 
 const FACES = Object.fromEntries(
