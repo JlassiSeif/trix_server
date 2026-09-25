@@ -11,7 +11,8 @@ A home for Tunisian card and table games, played with friends or against bots, a
 |---|---|---|---|
 | Trix | Live | [games/trix](games/trix) ([TODO](games/trix/TODO.md), [CHANGELOG](games/trix/CHANGELOG.md)) | 1.1.0 |
 | Chkobba (1v1, 2v2), rami (61, 71; 1v1, 2v2), Pablo (any number, casual), tekdheb (one or two decks, casual), belote (2v2; Tunis and Sfax variants, later) | **Next** (Seif, 2026-09-25); each starts with a rules walkthrough with Seif. Modes: `docs/play-modes.md` | | |
-| Bent walad, loup garou, dominos, an Uno-style game, a Monopoly-style game, jhayech, the goose game | Wanted (Seif's friends, 2026-09-24) | | |
+| Dominos, dama (checkers), kharbga, the goose game | **Quick ones** (Seif, 2026-09-25): Seif is checking how dominos, dama and kharbga are played; he sends the goose game's rules. Each still gets a short rules walkthrough | | |
+| Bent walad, loup garou, an Uno-style game, a Monopoly-style game, jhayech | Wanted (Seif's friends, 2026-09-24) | | |
 
 Adding a game: [docs/adding-a-game.md](docs/adding-a-game.md). How games look: [docs/game-look.md](docs/game-look.md).
 
