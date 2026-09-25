@@ -1,4 +1,4 @@
-# Tunisian games hub: TODO
+# Dineri (the Tunisian games hub): TODO
 
 The platform's list, and the index of games. Each game keeps its own list in `games/<game>/TODO.md`. We reconcile these files with the disk at the start of every session. Sources of truth: the disk, Seif, and these files. Anything not written here or confirmed by Seif is an open question, not a decision.
 
@@ -34,6 +34,7 @@ The phases are in [docs/architecture.md](docs/architecture.md) §13. Applies to 
 - **Repository:** one repo at `~/trix`; the 2023 C++ server and SDL client live in `archive/` as reference only. Baseline commit `7aab93e`.
 - **GitHub (2026-09-25):** pushed to `JlassiSeif/trix_server` with the release tags (`v0.5.0`, `trix@1.0.0`, `platform@1.0.0`). This machine pushes with its own key, `~/.ssh/trix_github` (a deploy key with write access), set for this repo only (`git config core.sshCommand`). Automated tests and deploys (architecture phase 4) can build on it.
 - **Architecture phase 1 (2026-09-25):** `docs/architecture.md` approved by Seif (one repository with a folder per game; restructure first). The platform (`platform/`) runs any game through the game contract (`platform/sdk`); Trix is `games/trix`. Hub home page, a page per game, per-game off switch (`TRIX_CLOSED_GAMES`), `GET /api/games`, per-game TODO, changelog and version. A test-only second game proves the platform doesn't depend on Trix.
+- **Dineri's look (2026-09-25):** the hub is a card table on a Tunisian café night: playable games are face-up cards, the rest lie face down; Reem Kufi and Rubik; the game page and lobby to match. Checked at desktop and phone size (`platform/web/e2e/look.mjs`). Not deployed (deploys happen at milestones Seif calls).
 - **Security review:** `docs/security.md`. Per-address limits, a lockout on guessing, an origin check, unique names, HTTP hardening; npm audit clean.
 - **Pre-deployment check:** `docs/predeploy-check.md`. Games survive restarts, lost tables are handled, two tabs can't fight over one seat, caps plus security and cache headers.
 - **Hosting:** a guest container on the shared Rheona VPS, under the box's rules (`deploy/new_tenant.md`). `deploy/deploy.sh` builds, ships, proves the container, reloads Caddy only when needed and runs the post-checks; `docs/deploy.md` covers the rest. Live releases: `fbbe767` and `dce18c0` (2026-09-24).
