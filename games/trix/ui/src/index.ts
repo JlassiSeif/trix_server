@@ -1,10 +1,8 @@
 // Trix for the hub: its description (loaded with the home page) and its table (loaded on demand).
 
-import type { GameUI } from "@platform/ui";
+import { cardFaceUrl, type GameUI } from "@platform/ui";
+import { TrixIcon } from "./icon";
 import { LEVELS } from "./levels";
-import kingOfHearts from "./assets/cards/k_h.png?url";
-import tenOfDiamonds from "./assets/cards/10_d.png?url";
-import queenOfSpades from "./assets/cards/q_s.png?url";
 
 export const trixUI: GameUI = {
   id: "trix",
@@ -16,8 +14,9 @@ export const trixUI: GameUI = {
   },
   players: { en: "4 players", fr: "4 joueurs", ar: "4 لاعبين" },
   // The K♥ (ray), a diamond (dineri) and a queen (damet): three of Trix's contracts in one fan.
-  cover: [queenOfSpades, kingOfHearts, tenOfDiamonds],
+  cover: [cardFaceUrl("q_s"), cardFaceUrl("k_h"), cardFaceUrl("10_d")],
   initial: "T",
+  icon: TrixIcon,
   levels: LEVELS,
   loadTable: () => import("./Table").then((m) => m.Table),
 };
