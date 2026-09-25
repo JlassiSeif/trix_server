@@ -9,7 +9,7 @@ One page for every game on Dineri: what we know, what Seif has decided, what's d
 | # | Game | Players | Variants | Modes (Seif, 2026-09-25) | Rules | Icon | Status |
 |---|---|---|---|---|---|---|---|
 | – | **Trix** | 4, each alone | – | casual; ranked later | ✅ approved | ✅ | **Live**, 1.1.0 |
-| 1 | **Chkobba** | 1v1, 2v2 | walkthrough | casual; ranked 1v1 and 2v2 duo | waiting for Seif | ✅ | next |
+| 1 | **Chkobba** | 1v1, 2v2 | walkthrough | casual; ranked 1v1 and 2v2 duo | **draft** from Seif's reference (`games/chkobba/RULES.md`), 10 questions for Seif | ✅ | next |
 | 2 | **Rami** | 1v1, 2v2 (more: walkthrough) | 61, 71 (harder) | casual; ranked 71 only | waiting for Seif | ✅ | next |
 | 3 | **Belote** | 2v2 only | Tunis, Sfax | casual; ranked later | later (Seif unsure) | ✅ | later |
 | 4 | **Pablo** | any number | – | casual among friends | waiting for Seif | ✅ | next |
@@ -28,10 +28,10 @@ Also wanted, with our own names and twists (trademarks): an Uno-style game, a Mo
 
 Every game follows the same steps (adding-a-game.md): **rules** → **engine** (tests per rule, fuzz run) → **bots** → **table screen** (house style) → **icon** into its package → station/browser tests → release. Below: what's particular to each.
 
-- **Chkobba:** 40-card deck (ace to 7, and J Q K). Captures by match or by sum, sweeps (*chkobba*), end-of-round scoring. **Needs teams** (2v2) and **two-seat tables** (1v1). Bots: capture choice and counting cards left, a good fit for the Trix bots' approach.
+- **Chkobba:** the Tunisian 40-card deck (pips without numbers; queen 8, jack 9, king 10). Rules draft from Seif's reference, the French Wikipedia article: `games/chkobba/RULES.md` (DRAFT). Captures by match or by sum, sweeps (*chkobba*), end-of-round scoring. **Needs teams** (2v2) and **two-seat tables** (1v1). Bots: capture choice and counting cards left, a good fit for the Trix bots' approach.
 - **Rami:** two decks with jokers. Melds on the table, an opening minimum (61 or 71), jokers. **Needs variants per table** (61/71), **teams** (2v2), two-seat tables. The biggest engine of the lot; bots need meld search.
 - **Belote:** 32 cards (same as Trix), trumps, bidding. **Needs teams** and **variants** (Tunis, Sfax). Reuses much of Trix's trick-taking engine and bot ideas.
-- **Pablo** (as commonly played; the walkthrough decides): four face-down cards each, peeking, swapping, calling "Pablo". **Needs tables of any size** (the owner starts when enough have joined). Secrets per player fit the engine as-is (each seat sees only its own view).
+- **Pablo** (as commonly played; the walkthrough decides): played with the Chkobba deck (Seif, 2026-09-25); four face-down cards each, peeking, swapping, calling "Pablo". **Needs tables of any size** (the owner starts when enough have joined). Secrets per player fit the engine as-is (each seat sees only its own view).
 - **Tekdheb** (assumed from its name, "you're lying"; the walkthrough decides): cards played face down with a claim, and calling a lie. Its icon shows that too, and changes if the game is different. One or two decks by player count. **Needs tables of any size.** The bots need to bluff and to judge bluffs.
 - **Dominos:** tiles instead of cards. **Needs a tile set** (drawn in the house style) and possibly teams (walkthrough).
 - **Dama:** an 8×8 or 10×10 board (walkthrough). **Needs a board and pieces** in the house style, two-seat tables. Everything is visible, so strong bots come from a plain search.
@@ -43,7 +43,7 @@ Every game follows the same steps (adding-a-game.md): **rules** → **engine** (
 
 | Piece | Status | Games |
 |---|---|---|
-| Shared card deck | ✅ done (2026-09-25), `platform/ui/src/cards.ts`: the full deck (52 faces, both jokers) in the 2023 style Seif prefers (Aisleriot's original "bonded" deck; the jokers carry the GNOME foot) | Trix, Chkobba, Rami, Belote, Pablo, Tekdheb |
+| Card decks | ✅ done (2026-09-25), `platform/ui/src/cards.ts`. **Classic:** 52 faces and both jokers in the 2023 style Seif prefers (Aisleriot's original "bonded" deck; the jokers carry the GNOME foot). **Chkobba:** the Tunisian 40-card deck, pips without numbers (Abjiklam, Wikimedia Commons; CC0 and CC BY-SA 4.0) | Classic: Trix, Rami, Belote, Tekdheb. Chkobba deck: Chkobba, Pablo (Seif, 2026-09-25) |
 | Dineri's card back | ✅ done | all card games |
 | Game icons | ✅ done: in each game's description, on the home page's cards, the game page and the lobby | all |
 | Teams (partners across, team seating, team scores, bots standing in for their team) | spec in play-modes.md, waiting for approval | Chkobba 2v2, Rami 2v2, Belote, maybe Dominos |
