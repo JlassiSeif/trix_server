@@ -14,8 +14,10 @@ COPY platform/web/package.json platform/web/
 COPY games/trix/engine/package.json games/trix/engine/
 COPY games/trix/ui/package.json games/trix/ui/
 COPY games/trix/station/package.json games/trix/station/
+COPY brand/package.json brand/
 RUN npm ci --no-audit --no-fund
 COPY tsconfig.base.json ./
+COPY brand brand
 COPY platform platform
 COPY games games
 RUN npm run build
