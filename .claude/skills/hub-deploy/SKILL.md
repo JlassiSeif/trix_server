@@ -1,9 +1,11 @@
 ---
 name: hub-deploy
-description: Mandatory for ANY deploy, rollback, game switch-off, or change on the server of the Tunisian games hub (trix.rheona.space, the `trix` tenant on the shared Rheona VPS). Load it before running deploy/deploy.sh (other than --checks), before any ssh to the VPS that changes something, and before touching deploy/. It holds the shared server's hard rules, the gate before a deploy, the procedure, the live checks after, and how to back out.
+description: Mandatory for ANY deploy, rollback, game switch-off, or change on the server of Dineri, the Tunisian games hub (dineri.world; formerly trix.rheona.space; the `trix` tenant on the shared Rheona VPS). Load it before running deploy/deploy.sh (other than --checks), before any ssh to the VPS that changes something, and before touching deploy/. It holds the shared server's hard rules, the gate before a deploy, the procedure, the live checks after, and how to back out.
 ---
 
-# Deploying the games hub
+# Deploying Dineri, the games hub
+
+**We develop locally; Seif decides when to deploy, usually at a milestone** (Seif, 2026-09-25). Finished work is committed and pushed to GitHub, then waits. Never deploy, or push toward a deploy, because a change is done.
 
 The site runs as a **guest container on a shared machine** whose real job is fleet-critical Rheonix infrastructure: the Docker registry and the license server that customer devices depend on. **Breaking a neighbour is the one unacceptable outcome;** it outranks shipping anything. When in doubt, stop and ask Seif.
 
@@ -18,7 +20,7 @@ Read before any change, every time: `deploy/new_tenant.md` (the box owner's rule
 - **Anything outside these rules is a conversation with Seif** (and the box's owner), not a judgement call.
 
 ## 2. The gate before every deploy
-1. **Seif said "deploy" for this change, in this conversation.** Earlier approvals don't count.
+1. **Seif said "deploy" for this change, in this conversation.** Earlier approvals don't count, and a finished feature isn't a reason to ask.
 2. **A clean tree on a committed change:** `git status --porcelain` is empty (deploy.sh refuses otherwise).
 3. **The full regression passed on this commit,** in one background run:
    ```bash
@@ -31,7 +33,7 @@ Read before any change, every time: `deploy/new_tenant.md` (the box owner's rule
    node platform/web/e2e/play-vs-bots.mjs OUT && node platform/web/e2e/play-vs-bots.mjs OUT --viewport 390x844
    ```
    Then check that no test server was left running.
-4. **The neighbours are healthy before we start:** `deploy/deploy.sh --checks`. If a neighbour line already fails, don't deploy; tell Seif.
+4. **The neighbours are healthy before we start:** `deploy/deploy.sh --checks`. If a neighbour line already fails, don't deploy; tell Seif. (Our own lines may fail before the first deploy of a new address: exit code 2.)
 5. **Saved games still load:** if a game's state or the room save format changed, a test must restore a save from the previous version (see the room tests for pre-hub saves).
 
 ## 3. Deploy
@@ -65,5 +67,23 @@ Games in progress survive: rooms are saved and restored, and players see "Reconn
 - **Switch a game off** (no new tables; running ones finish; other games unaffected): set `TRIX_CLOSED_GAMES: <id>` in `deploy/compose.yml`, commit, deploy. In an emergency, edit `~/trix/docker-compose.yml` on the box and `docker compose up -d`. Put the same change in the repo, because the next deploy overwrites the box's copy.
 - **Stop the site:** `cd ~/trix && docker compose down` (never `-v`). Caddy answers 502 and keeps the certificate.
 
-## 6. Facts
-Live URL https://trix.rheona.space. Container `trix-web-1`, network `edge`, data `/home/ubuntu/trix/data/rooms.json` (mode 600, folder 700, uid 1001). Image: Node 24 Alpine, pinned by digest in `deploy/Dockerfile`. Settings are in `deploy/compose.yml` (`TRIX_TRUST_PROXY=private` behind Caddy, `TRIX_ORIGINS`, `TRIX_CLOSED_GAMES`, the heap limit). Deploy history is in the TODO's "Deployed" entries; the full procedure for humans is in `docs/deploy.md`.
+## 6. The address: dineri.world (Seif, 2026-09-25)
+The hub is **Dineri** at **https://dineri.world**. `www.dineri.world` and `trix.rheona.space` redirect to it, keeping the path, so old invite links still work. `deploy/trix.caddy`, `deploy/compose.yml` (`TRIX_ORIGINS`) and `deploy/deploy.sh` (`SITE`, `REDIRECTS`) are set for it.
+
+**DNS at Namecheap** (Domain List → dineri.world → Advanced DNS). The nameservers stay Namecheap's (`dns1/dns2.registrar-servers.com`).
+| Type | Host | Value |
+|---|---|---|
+| A record | `@` | `158.180.55.44` |
+| CNAME record | `www` | `dineri.world.` |
+Delete Namecheap's parking records (the URL redirect on `@` and the `www` → `parkingpage.namecheap.com` CNAME). **No AAAA record:** the VPS has no IPv6, and a wrong AAAA breaks certificates. deploy.sh refuses to run until all three names resolve to the VPS.
+
+**The switch-over** (the first deploy with these files; only when Seif says deploy):
+1. DNS resolves for all three names (`dig +short A dineri.world`, and the same for `www.dineri.world`).
+2. Pick a quiet moment: browsers keep seats and names per address, so a table in progress on trix.rheona.space loses its players' saved seats. Look at the tables in play first: `docker exec trix-web-1 node -e "fetch('http://127.0.0.1:8080/api/stats').then(r=>r.json()).then(console.log)"`.
+3. `deploy/deploy.sh`: Caddy gets certificates for all three names on the reload. Post-checks: hub 200, hub API 200, both redirects 301.
+4. Tell Seif to share https://dineri.world from now on.
+
+This puts a non-rheona.space domain on the fleet's Caddy. The Rheona contract only foresees `<app>.rheona.space`, so Seif confirms that as the box's owner before the switch-over.
+
+## 7. Facts
+Address https://dineri.world (until the switch-over: https://trix.rheona.space). Container `trix-web-1`, network `edge`, data `/home/ubuntu/trix/data/rooms.json` (mode 600, folder 700, uid 1001). Image: Node 24 Alpine, pinned by digest in `deploy/Dockerfile`. Settings are in `deploy/compose.yml` (`TRIX_TRUST_PROXY=private` behind Caddy, `TRIX_ORIGINS`, `TRIX_CLOSED_GAMES`, the heap limit). Deploy history is in the TODO's "Deployed" entries; the full procedure for humans is in `docs/deploy.md`.

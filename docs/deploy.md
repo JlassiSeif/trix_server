@@ -1,6 +1,8 @@
 # Deploying the games hub
 
-**Where it runs:** `https://trix.rheona.space`, as a guest (the `trix` tenant) on the shared Rheona VPS `158.180.55.44`.
+**Where it runs:** Dineri's address is `https://dineri.world` (Seif, 2026-09-25); `www.dineri.world` and the old `https://trix.rheona.space` redirect to it. Until the switch-over deploy, the live site is still `https://trix.rheona.space`. It runs as a guest (the `trix` tenant) on the shared Rheona VPS `158.180.55.44`.
+
+**When:** we develop locally; Seif decides when to deploy, usually at a milestone.
 
 The rules for that machine come first. It runs fleet-critical services (the Docker registry and the license server) behind one Caddy that Trix doesn't own. They are in `deploy/new_tenant.md` (kept out of git) and the contract `rheonix-core/docs/ops/VPS_SHARED_HOSTING.md`. Re-read them before any change. If this page disagrees with them, they win.
 
@@ -38,6 +40,10 @@ browser ──HTTPS/WSS──▶ rheona-infra-caddy-1 (owns :80/:443 and certifi
 | `HOST`, `PORT`, `WEB_DIST` | `0.0.0.0`, `8080`, `/app/web` | set in the image |
 
 `TRIX_SPEED` is for tests only. Never set it in production.
+
+## The domain (dineri.world, Namecheap)
+
+In Namecheap's Advanced DNS for dineri.world: an **A record** for `@` → `158.180.55.44` and a **CNAME** for `www` → `dineri.world.`. Delete the parking records. No AAAA record (the VPS has no IPv6). The first deploy after that is the switch-over: pick a quiet moment, because players' saved seats don't carry across addresses. The steps are in the hub-deploy skill (§6).
 
 ## Before every deploy
 

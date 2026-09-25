@@ -19,7 +19,8 @@ services:
       TRIX_STATE_FILE: /data/rooms.json
       # Caddy reaches us over `edge` (a private network) and sets X-Forwarded-For to the visitor.
       TRIX_TRUST_PROXY: private
-      TRIX_ORIGINS: https://trix.rheona.space
+      # Pages allowed to open game connections: the hub only (the other names redirect to it).
+      TRIX_ORIGINS: https://dineri.world
       # Games switched off (comma-separated ids): no new tables, running ones finish. docs/deploy.md.
       TRIX_CLOSED_GAMES: ""
       # Keep the JS heap well inside mem_limit.

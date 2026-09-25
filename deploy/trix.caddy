@@ -1,6 +1,8 @@
 # Copied (scp, never a heredoc) to ~/rheona-infra/sites.d/trix.caddy on the shared VPS.
 # Validate, then reload; never restart. No HSTS on purpose (see deploy/new_tenant.md §6.5).
-trix.rheona.space {
+
+# Dineri, the games hub (Seif, 2026-09-25).
+dineri.world {
 	encode gzip
 	# Game messages are tiny (the server caps them at 4 KB); nothing needs a large body.
 	request_body {
@@ -8,4 +10,10 @@ trix.rheona.space {
 	}
 	header -Server
 	reverse_proxy trix-web-1:8080
+}
+
+# The other names forward to it, keeping the path, so old invite links still work.
+www.dineri.world, trix.rheona.space {
+	header -Server
+	redir https://dineri.world{uri} permanent
 }
