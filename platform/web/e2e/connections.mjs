@@ -460,15 +460,15 @@ await runCase("C15", "Choosing the bots' level in the lobby", "The owner picks a
 await runCase("C16", "The hub: pick a game", "The home page lists the games (Trix playable, the others coming soon); Trix opens its own page; the browser's back button returns to the list; the game list says Trix is open.", async () => {
   const p = await newPlayer("hub");
   await p.goto(p.base);
-  await p.waitForSelector(".game-tile");
-  const tiles = await p.locator(".game-tile strong").allInnerTexts();
-  const soon = await p.locator(".game-tile.soon").count();
+  await p.waitForSelector(".game-card");
+  const tiles = await p.locator(".game-card-name").allInnerTexts();
+  const soon = await p.locator(".face-down").count();
   await shot(p, "C16-home");
-  await p.click('.game-tile:has-text("Trix")');
+  await p.click('.game-card:has-text("Trix")');
   await p.waitForSelector("#name");
   const onTrix = new URL(p.url()).pathname === "/trix" && (await text(p)).includes("Create a table");
   await p.goBack();
-  await p.waitForSelector(".game-tile");
+  await p.waitForSelector(".game-card");
   const backHome = new URL(p.url()).pathname === "/";
   const list = await p.evaluate(() => fetch("/api/games").then((r) => r.json()));
   await p.context().close();
@@ -485,6 +485,14 @@ await runCase("C9", "Server restarts in the middle of a game", "After a restart 
   await addBots(owner, 2);
   await friend.waitForSelector(".table-screen");
   await Promise.all([autoplay(owner, 2500), autoplay(friend, 2500)]);
+  // Only compare a still picture: wait until the table waits on one of the two people (their card to
+  // play or their contract to pick). Otherwise bots, or the next deal, can change the hand after the
+  // snapshot and before the restart.
+  const waitsOnHuman = async () => {
+    for (const p of [owner, friend]) if ((await p.locator(".hand .card.legal").count()) || (await p.locator(".picker").count())) return true;
+    return false;
+  };
+  for (let i = 0; i < 100 && !(await waitsOnHuman()); i++) await sleep(100);
   const before = { hand: await handOf(friend), contract: await friend.locator(".contract-no").innerText() };
   const rejoinsBefore = countLog("seat.reconnected");
   await stopServer("SIGTERM");

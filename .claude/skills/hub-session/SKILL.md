@@ -59,7 +59,8 @@ Adding a game follows `docs/adding-a-game.md`, starting with a rules walkthrough
 | A game's rules | engine tests citing rule IDs; `npm run station`; `npx tsx games/trix/station/src/mutants.ts` (all caught) |
 | Bots | `npm run arena` (every level clearly beats the one below; hard under 30 ms at the 99th percentile) |
 | Server or contract | server tests (including `test/contract.test.ts`, the test-only second game); the station |
-| Screens | `node platform/web/e2e/connections.mjs`; a full game: `TRIX_SPEED=10 PORT=8123 node platform/server/dist/index.js` then `node platform/web/e2e/play-vs-bots.mjs OUT --viewport 390x844` (and 360x740, and desktop). Look at the screenshots |
+| Screens | `node platform/web/e2e/connections.mjs`; a full game: `TRIX_SPEED=10 PORT=8123 node platform/server/dist/index.js` then `node platform/web/e2e/play-vs-bots.mjs OUT --viewport 390x844` (and 360x740, and desktop) |
+| How anything looks | **Look before handing it over.** `node platform/web/e2e/look.mjs OUT --base URL --tag before` (hub pages at desktop and phone size), change, `--tag after`, then read the screenshots and judge them honestly. Seif caught a plain first version of the hub that nobody had looked at. |
 | Before a deploy | all of the above (the hub-deploy skill) |
 
 Run long suites in the background and wait for the notification; don't poll.

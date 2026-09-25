@@ -19,6 +19,10 @@ export interface GameUI {
   /** One line for the home page and the game's page. */
   tagline: string;
   players: string;
+  /** Optional: a few images (e.g. cards) laid out as a fan on the game's card on the home page. */
+  cover?: string[];
+  /** Optional: the letter in the corners of its card on the home page (default: its name's first letter). */
+  initial?: string;
   levels: LevelInfo[];
   /** The table, for every stage after the lobby. Loaded on demand. */
   loadTable: () => Promise<ComponentType<{ conn: Connection }>>;

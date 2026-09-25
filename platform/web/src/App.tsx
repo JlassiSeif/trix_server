@@ -1,5 +1,6 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useState, type ComponentType } from "react";
 import { seatToken, useConnection, type Connection, type GameUI } from "@platform/ui";
+import { TopBar } from "./brand";
 import { gameById } from "./games";
 import { Entry } from "./screens/Entry";
 import { Home } from "./screens/Home";
@@ -51,11 +52,16 @@ export function App() {
 
   if (conn.replaced) {
     return (
-      <main className="entry">
-        <h1>Tunisian games</h1>
-        <p className="notice">Your seat is open in another tab or window, so this one has stepped back.</p>
-        <button onClick={conn.takeOver}>Play here instead</button>
-      </main>
+      <div className="hub entry">
+        <TopBar />
+        <main className="plain">
+          <h1>Open elsewhere</h1>
+          <p className="lede">Your seat is open in another tab or window, so this one has stepped back.</p>
+          <button className="primary" onClick={conn.takeOver}>
+            Play here instead
+          </button>
+        </main>
+      </div>
     );
   }
   if (conn.room && conn.roomId && !conn.removed) {
@@ -65,10 +71,12 @@ export function App() {
   }
   if (urlRoom && storedToken && !conn.error && !conn.removed) {
     return (
-      <main className="entry">
-        <h1>Tunisian games</h1>
-        <p className="muted">Taking you back to your seat…</p>
-      </main>
+      <div className="hub entry">
+        <TopBar />
+        <main className="plain">
+          <p className="lede">Taking you back to your seat…</p>
+        </main>
+      </div>
     );
   }
   if (urlRoom && !conn.removed && !conn.lost) return <Entry conn={conn} game={null} roomId={urlRoom} invite={invite} go={go} />;
@@ -79,9 +87,26 @@ export function App() {
 /** A game's table screen, loaded the first time it's needed (docs/architecture.md §10). */
 function GameTable({ conn, game }: { conn: Connection; game: GameUI | null }) {
   const Table = useMemo(() => (game ? lazy(() => game.loadTable().then((c: ComponentType<{ conn: Connection }>) => ({ default: c }))) : null), [game]);
-  if (!Table) return <main className="entry"><p className="notice">This table plays a game this page doesn't know. Reload the page.</p></main>;
+  if (!Table)
+    return (
+      <div className="hub entry">
+        <TopBar />
+        <main className="plain">
+          <p className="notice">This table plays a game this page doesn't know. Reload the page.</p>
+        </main>
+      </div>
+    );
   return (
-    <Suspense fallback={<main className="entry"><p className="muted">Loading the table…</p></main>}>
+    <Suspense
+      fallback={
+        <div className="hub entry">
+          <TopBar />
+          <main className="plain">
+            <p className="lede">Setting up the table…</p>
+          </main>
+        </div>
+      }
+    >
       <Table conn={conn} />
     </Suspense>
   );

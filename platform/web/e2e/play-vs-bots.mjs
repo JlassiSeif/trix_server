@@ -31,7 +31,7 @@ const visible = async (sel) => (await page.locator(sel).count()) > 0 && page.loc
 // Home → create a table → add 3 bots (the game starts on its own).
 await page.goto(base);
 await shot("home");
-await page.click('.game-tile:has-text("Trix")');
+await page.click('.game-card:has-text("Trix")');
 await page.waitForSelector("#name");
 await shot("trix-page");
 await page.fill("#name", "Seif");
