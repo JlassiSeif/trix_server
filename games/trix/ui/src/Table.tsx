@@ -12,7 +12,7 @@ import {
   type Seat,
 } from "@games/trix";
 import type { RoomView } from "@platform/protocol";
-import { InviteLink, LeaveButton, dirOf, list, ltr, seatName, useErrorText, useLang, useText, useTick, type Connection } from "@platform/ui";
+import { InviteLink, LeaveButton, SeatTag as Seat_, TableHeader, dirOf, list, ltr, seatName, useErrorText, useLang, useText, useTick, type Connection } from "@platform/ui";
 import { Card, ContractIcon } from "./cards";
 import { LEVELS } from "./levels";
 import { CONTRACT_ORDER, T, cardLabel, describe } from "./text";
@@ -207,6 +207,7 @@ export function Table({ conn: anyConn }: { conn: Connection }) {
       </div>
 
       <aside className={`side ${sideOpen ? "open" : ""}`}>
+        <TableHeader />
         <button className="side-close" onClick={() => setSideOpen(false)}>
           {t.backToTable}
         </button>
@@ -247,29 +248,32 @@ function ContractBadge({ game, name }: { game: PlayerView; name: (s: Seat) => st
   );
 }
 
+/** A seat at the Trix table: the shared seat look, with Trix's own facts (points, tricks, picker, out). */
 function SeatTag({ seat, room, game }: { seat: Seat; room: RoomView; game: PlayerView }) {
   const t = useText(T);
   const lang = useLang();
   const info = room.seats[seat]!;
   const turn = game.turn === seat && (game.phase === "tricks" || game.phase === "trix" || game.phase === "picking");
+  const level = LEVELS.findIndex((l) => l.id === info.level);
   return (
-    <div className={`seat-tag ${turn ? "turn" : ""}`} dir={dirOf(lang)}>
-      <span className="seat-name">
-        {seatName(info, lang, LEVELS) ?? t.tag.emptySeat}
-        {seat === room.you ? t.tag.youSuffix : ""}
-      </span>
-      <span className="seat-meta">
-        <span title={t.tag.totalTitle}>{t.tag.pts(game.totals[seat]!)}</span>
-        {(game.phase === "tricks" || game.phase === "contractEnd") && game.contract !== "trix" && (
-          <span title={t.tag.tricksTitle}>{t.tag.tricks(game.tricksWon[seat]!)}</span>
-        )}
-        {game.picker === seat && game.contract && <span className="chip">{t.tag.picker}</span>}
-        {info.kind === "bot" && <span className="chip">{t.tag.bot}</span>}
-        {info.botPlaying && <span className="chip warn">{t.tag.botPlaying}</span>}
-        {info.kind === "human" && !info.connected && <span className="chip warn">{t.tag.away}</span>}
-        {game.finishers.includes(seat) && <span className="chip">{t.tag.out(t.ordinal(game.finishers.indexOf(seat) + 1))}</span>}
-      </span>
-    </div>
+    <Seat_
+      dir={dirOf(lang)}
+      name={seatName(info, lang, LEVELS) ?? t.tag.emptySeat}
+      you={seat === room.you}
+      owner={seat === room.owner}
+      bot={info.kind === "bot" && level >= 0 ? { pips: level + 1, label: LEVELS[level]!.label[lang] } : null}
+      away={info.kind === "human" && !info.connected}
+      botPlaying={info.botPlaying}
+      turn={turn}
+      meta={
+        <>
+          <span title={t.tag.totalTitle}>{t.tag.pts(game.totals[seat]!)}</span>
+          {(game.phase === "tricks" || game.phase === "contractEnd") && game.contract !== "trix" && <span title={t.tag.tricksTitle}>{t.tag.tricks(game.tricksWon[seat]!)}</span>}
+          {game.picker === seat && game.contract && <span className="chip">{t.tag.picker}</span>}
+          {game.finishers.includes(seat) && <span className="chip">{t.tag.out(t.ordinal(game.finishers.indexOf(seat) + 1))}</span>}
+        </>
+      }
+    />
   );
 }
 

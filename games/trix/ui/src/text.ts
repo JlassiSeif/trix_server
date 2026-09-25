@@ -75,9 +75,6 @@ export const T = texts({
       tricksTitle: "Tricks won this contract",
       tricks: (n: number) => `${n} trick${n === 1 ? "" : "s"}`,
       picker: "picker",
-      bot: "bot",
-      botPlaying: "bot playing",
-      away: "away",
       out: (place: string) => `${place} out`,
     },
     turn: {
@@ -205,9 +202,6 @@ export const T = texts({
       tricksTitle: "Plis remportés dans ce contrat",
       tricks: (n: number) => `${n} pli${n > 1 ? "s" : ""}`,
       picker: "a choisi",
-      bot: "bot",
-      botPlaying: "un bot joue",
-      away: "absent",
       out: (place: string) => `sorti ${place}`,
     },
     turn: {
@@ -335,9 +329,6 @@ export const T = texts({
       tricksTitle: "الأكلات في هذا العقد",
       tricks: (n: number) => plural("ar", n, { zero: "لا أكلات", one: "أكلة", two: "أكلتان", few: "# أكلات", other: "# أكلة" }),
       picker: "المختار",
-      bot: "روبوت",
-      botPlaying: "روبوت يلعب",
-      away: "غائب",
       out: (place: string) => `خرج ${place}`,
     },
     turn: {
