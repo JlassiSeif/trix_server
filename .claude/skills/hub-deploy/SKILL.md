@@ -45,7 +45,7 @@ It refuses a dirty tree, a `ports:` line or wrong DNS. It builds `trix-web:<sha>
 Games in progress survive: rooms are saved and restored, and players see "Reconnecting…" for a moment.
 
 ## 4. After every deploy
-1. **Live check in a real browser** against https://dineri.world (before the switch-over: https://trix.rheona.space): open the hub, open a game page, play a few moves against bots (a small Playwright script in `platform/web/e2e/`, deleted afterwards), and make sure there are no page errors. Leave the table afterwards.
+1. **Live check in a real browser** against https://dineri.world: open the hub, open a game page, play a few moves against bots (a small Playwright script in `platform/web/e2e/`, deleted afterwards), and make sure there are no page errors. Leave the table afterwards.
 2. **The server's view:**
    ```bash
    ssh -i ~/.ssh/rheona -o IdentitiesOnly=yes ubuntu@158.180.55.44 'docker logs trix-web-1 2>&1 | grep -E "state.restored|server.listening|bot.crashed|bot.illegalMove|\"level\":\"error\"" | tail; docker stats --no-stream --format "{{.Name}} {{.MemUsage}}" trix-web-1; docker inspect trix-web-1 --format "{{.State.Health.Status}} {{json .NetworkSettings.Ports}}"'
@@ -77,7 +77,7 @@ The hub is **Dineri** at **https://dineri.world**. `www.dineri.world` and `trix.
 | CNAME record | `www` | `dineri.world.` |
 Delete Namecheap's parking records (the URL redirect on `@` and the `www` → `parkingpage.namecheap.com` CNAME). **No AAAA record:** the VPS has no IPv6, and a wrong AAAA breaks certificates. deploy.sh refuses to run until all three names resolve to the VPS.
 
-**The switch-over** (the first deploy with these files; only when Seif says deploy):
+**The switch-over was done on 2026-09-25 (`fe275c1`), at a moment with no tables in play.** For the record, and for any future move of address, the steps were:
 1. DNS resolves for all three names (`dig +short A dineri.world`, and the same for `www.dineri.world`).
 2. Pick a quiet moment: browsers keep seats and names per address, so a table in progress on trix.rheona.space loses its players' saved seats. Look at the tables in play first: `docker exec trix-web-1 node -e "fetch('http://127.0.0.1:8080/api/stats').then(r=>r.json()).then(console.log)"`.
 3. `deploy/deploy.sh`: Caddy gets certificates for all three names on the reload. Post-checks: hub 200, hub API 200, both redirects 301.
@@ -86,6 +86,6 @@ Delete Namecheap's parking records (the URL redirect on `@` and the `www` → `p
 This puts a non-rheona.space domain on the fleet's Caddy. The Rheona contract only foresees `<app>.rheona.space`; **Seif approved it as the owner of both (2026-09-25).** DNS set by Seif the same day and verified: both names resolve to 158.180.55.44 at Namecheap's nameservers and public resolvers, with no AAAA record.
 
 ## 7. Facts
-Address https://dineri.world (until the switch-over: https://trix.rheona.space). Container `trix-web-1`, network `edge`, data `/home/ubuntu/trix/data/rooms.json` (mode 600, folder 700, uid 1001). Image: Node 24 Alpine, pinned by digest in `deploy/Dockerfile`. Settings are in `deploy/compose.yml` (`TRIX_TRUST_PROXY=private` behind Caddy, `TRIX_ORIGINS`, `TRIX_CLOSED_GAMES`, the heap limit). Deploy history is in the TODO's "Deployed" entries; the full procedure for humans is in `docs/deploy.md`.
+Address https://dineri.world (live since 2026-09-25; `trix.rheona.space` and `www` redirect there). The image build needs every workspace the site imports (`platform/*`, `games/*/*`, `brand`) in `deploy/Dockerfile`: a new top-level package means a new COPY line, or the build fails. Container `trix-web-1`, network `edge`, data `/home/ubuntu/trix/data/rooms.json` (mode 600, folder 700, uid 1001). Image: Node 24 Alpine, pinned by digest in `deploy/Dockerfile`. Settings are in `deploy/compose.yml` (`TRIX_TRUST_PROXY=private` behind Caddy, `TRIX_ORIGINS`, `TRIX_CLOSED_GAMES`, the heap limit). Deploy history is in the TODO's "Deployed" entries; the full procedure for humans is in `docs/deploy.md`.
 
 **Accounts (Firebase, built 2026-09-25, first deployed with the next deploy Seif calls):** the server's key is `~/trix/.secrets/firebase-sa.json` on the dev machine (gitignored); `deploy.sh` copies it to `/home/ubuntu/trix/secrets/firebase-sa.json` (mode 600, folder 700), mounted read-only at `/run/secrets`. Without it, the site runs with no sign-in (a broken key does the same, and logs `accounts.badKey`). Caddy passes `https://dineri.world/__/*` to `dineri-world.firebaseapp.com`, so Google's sign-in window shows our name; the post-checks include `/__/auth/handler` 200. Before the first deploy with accounts, Seif's console steps must be done (root TODO, Open 5). After it, check in a real browser that "Sign in" works with Google and with an email link, with no page errors or blocked loads. Signing in needs a person, so ask Seif to try it.

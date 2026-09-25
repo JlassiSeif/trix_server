@@ -40,6 +40,7 @@ The phases are in [docs/architecture.md](docs/architecture.md) §13. Applies to 
 - **Monetization:** the customizations above as the main income, plus sponsorship (see the 2026-09-24 conversation).
 
 ## Deployed
+- **2026-09-25: `fe275c1`, the switch-over to https://dineri.world** (Seif: "deploy to the new link"). Live: the Dineri hub and brand, Trix 1.1.0 (three languages, the house style, drag and drop and premoves), accounts code (sign-in off until Open 1 is done), About/Privacy/Terms, 404. `www.dineri.world` and `trix.rheona.space` redirect with their paths (invite links keep working). Verified: the full gate on the release commit (unit tests, typecheck, build, station 31/31, mutants 8/8, arena, browser flows 17/17, full games at desktop and phone size); the image smoke-tested locally; post-checks (neighbours registry 401, license 404, install.sh 200; hub 200, API 200, `/__/auth/handler` 200, both redirects 301); a live browser game at desktop and phone size with no page errors; the server healthy at 36 MB of 128, no published port. Zero tables were in play at the switch. Previous release kept as `trix-web:prev`. The first build failed (the Dockerfile didn't include the brand yet), fixed in `fe275c1` before anything was shipped.
 - **2026-09-24:** `fbbe767` (first deploy, trix.rheona.space), then `dce18c0` (bots at three levels, the phone layout).
 
 ## Done (platform)
