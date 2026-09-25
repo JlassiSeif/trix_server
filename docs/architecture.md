@@ -124,7 +124,7 @@ Two design points that matter for later games:
 ## 11. Hosting and operations
 
 - **Before going public:** move off the shared Rheona server (a guest slot capped at 128 MB, next to fleet-critical services) to Trix's own machine. For example an Oracle Always Free ARM machine (up to 4 cores and 24 GB), or a small paid server.
-- **What runs there:** Caddy (HTTPS), the Trix server, PostgreSQL with daily off-site backups, uptime monitoring and error tracking.
+- **What runs there:** Caddy (HTTPS), the Dineri server, backups of the saved tables, uptime monitoring and error tracking. Accounts and profiles live in Firebase (§6–7), not on the machine; a database of our own comes only if purchases or ladders need one.
 - **Automation:** tests on every push, and deploy from a tagged release. This needs the GitHub access fixed.
 - **Deploys without drama:** today a deploy restarts the server and players see "Reconnecting…" for a second. Later, a new server takes new tables while the old one finishes its games.
 

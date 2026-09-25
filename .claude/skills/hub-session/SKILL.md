@@ -1,6 +1,6 @@
 ---
 name: hub-session
-description: Start-of-session routine and standing rules for the Tunisian games hub repo (~/trix, live at trix.rheona.space). Use at the start of EVERY session in this repo, when Seif asks where things stand, and when updating or reconciling the TODO lists (root TODO.md, games/<game>/TODO.md). Covers the working agreement with Seif, the repo map, which checks to run for which change, and the traps already paid for.
+description: Start-of-session routine and standing rules for the Tunisian games hub repo (~/trix, live at dineri.world). Use at the start of EVERY session in this repo, when Seif asks where things stand, and when updating or reconciling the TODO lists (root TODO.md, games/<game>/TODO.md). Covers the working agreement with Seif, the repo map, which checks to run for which change, and the traps already paid for.
 ---
 
 # Tunisian games hub: session routine
@@ -23,7 +23,7 @@ Seif owns this project. He's the product owner and the source of the rules; Clau
    git status --short && git log --oneline -15 && git tag -l | tail
    ```
    Anything done on disk but still open in a TODO (or the reverse)? Fix the TODO, or ask Seif if it's unclear.
-3. The live site: `curl -s https://trix.rheona.space/api/health` shows the game versions running. Compare with the TODO's "Deployed" entries and the tags.
+3. The live site: `curl -s https://dineri.world/api/health` shows the game versions running. Compare with the TODO's "Deployed" entries and the tags.
 4. Leftovers from earlier sessions, which have made Seif's PC fan roar before:
    ```bash
    ps -eo pid,pcpu,etime,comm,args --sort=-pcpu | awk '$4=="MainThread" || /tsx|chrom/' | head

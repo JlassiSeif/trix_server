@@ -25,6 +25,7 @@ browser ──HTTPS/WSS──▶ rheona-infra-caddy-1 (owns :80/:443 and certifi
 |---|---|
 | `/home/ubuntu/trix/docker-compose.yml` | copy of `deploy/compose.yml` |
 | `/home/ubuntu/trix/data/rooms.json` | saved rooms |
+| `/home/ubuntu/trix/secrets/firebase-sa.json` | the Firebase server key, when accounts are on (mode 600) |
 | `~/rheona-infra/sites.d/trix.caddy` | copy of `deploy/trix.caddy` |
 | images `trix-web:<sha>`, `:latest`, `:prev` | the current release and the one before |
 
@@ -34,8 +35,11 @@ browser ──HTTPS/WSS──▶ rheona-infra-caddy-1 (owns :80/:443 and certifi
 |---|---|---|
 | `TRIX_STATE_FILE` | `/data/rooms.json` | where rooms are saved |
 | `TRIX_TRUST_PROXY` | `private` | believe `X-Forwarded-For` from a private-network peer (Caddy on `edge`). Needed for the per-address limits; safe because no port is published. |
-| `TRIX_ORIGINS` | `https://trix.rheona.space` | only our own page may open game connections |
+| `TRIX_ORIGINS` | `https://dineri.world` | only our own page may open game connections |
 | `TRIX_CLOSED_GAMES` | empty | games switched off: no new tables, running ones finish (see "One game at a time") |
+| `FIREBASE_PROJECT_ID` | `dineri-world` | the Firebase project behind accounts |
+| `FIREBASE_SERVICE_ACCOUNT_PATH` | `/run/secrets/firebase-sa.json` | the server's key, mounted read-only from `/home/ubuntu/trix/secrets/` (deploy.sh copies it from `.secrets/`, mode 600). No key: the site runs without sign-in |
+| `FIREBASE_AUTH_DOMAIN` | `dineri.world` | the address Google's sign-in window shows (Caddy passes `/__/` to Firebase) |
 | `NODE_OPTIONS` | `--max-old-space-size=80` | keeps the JS heap well inside the cap |
 | `HOST`, `PORT`, `WEB_DIST` | `0.0.0.0`, `8080`, `/app/web` | set in the image |
 
@@ -105,4 +109,4 @@ Every game has its own folder, version, changelog and tags (`docs/architecture.m
 - Logs: `docker logs -f trix-web-1` (JSON lines). Useful warnings: `ws.rateLimited`, `ws.tooManyFromAddress`, `room.tooManyFromAddress`, `join.lockedOut`.
 - Counts, from inside the container only: `docker exec trix-web-1 node -e "fetch('http://127.0.0.1:8080/api/stats').then(r=>r.json()).then(console.log)"`.
 - Memory: `docker stats --no-stream trix-web-1`.
-- From a laptop: `npm run station -- --base https://trix.rheona.space --speed 1 --only S01` plays one gentle game against the live server. Never run the stress, flood or attack scenarios against production: they share a machine with the fleet.
+- From a laptop: `npm run station -- --base https://dineri.world --speed 1 --only S01` plays one gentle game against the live server. Never run the stress, flood or attack scenarios against production: they share a machine with the fleet.

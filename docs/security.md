@@ -1,9 +1,10 @@
-# Security review (2026-09-23)
+# Security review (2026-09-23, accounts added 2026-09-25)
 
-**Scope:** the Trix server and web app as they run in production: a container behind the shared Rheona Caddy at `https://trix.rheona.space`.
+**Scope:** Dineri's server and web app as they run in production: a container behind the shared Rheona Caddy at `https://dineri.world`, with optional accounts through Firebase.
 
 **What we protect:**
 - fair games (nobody cheats, nobody sees another player's cards);
+- players' accounts and personal data (email, name, language);
 - the seats (nobody takes someone else's place);
 - the server staying up for everyone;
 - the machine itself.
@@ -36,6 +37,10 @@
 | **Server details leaking** | No software/version headers; the stats page only answers on the machine itself; errors never include internals | X07; server tests |
 | **Secrets in logs** | Seat tokens and invite codes are never logged | X10 (every token and code from a whole run checked against the log: 0 found) |
 | **Secrets at rest** | The saved-rooms file (which holds seat tokens) is written with permissions 600, in the service's own state folder | Server test (file mode 600) |
+| **Faking a sign-in** | The server checks every Firebase sign-in token itself: signed by Google's current keys (RS256), for our project, from Google's issuer, not expired. Only then does a request or a seat get an account. | Server tests: forged signature, wrong project, wrong issuer, expired, unknown key, wrong algorithm, not a token (all refused); the emulator test |
+| **Reading or changing someone's profile** | Profiles are only reachable through `/api/me` with the owner's own token, sent in a header (never a cookie, so other sites can't send it). The database refuses every browser outright; only the server's key gets in. Bodies over 2 KB are refused; 5 requests a second per address. | Server tests (401 without or with a bad token, 413, 405); the emulator test "the database refuses browsers" |
+| **Account data exposure** | Minimal data (name at the table, language, date joined; email only as Firebase holds it). A seat's account id is saved with the room but never sent to other players. Deleting the account removes the profile and the sign-in at once. Firebase's own error messages are never shown. | Server test "never shown to others"; accounts.mjs (delete removes the sign-in) |
+| **Sign-in pages in our name** | The content policy allows Google's sign-in script and endpoints only when accounts are on; Caddy passes only `/__/` to Firebase. The server key is a mounted secret (600, owner-only), never in git. A broken key turns sign-in off instead of taking the site down. | Server tests (content policy with and without accounts; a broken key) |
 | **Vulnerable dependencies** | Only one outside library ships with the server (`ws`, bundled in); versions are pinned | `npm audit`: 0 known vulnerabilities |
 | **The machine** (shared with the Rheona fleet) | Trix is a guest container: no host ports (only Caddy reaches it, over the `edge` network), 128 MB and 1 CPU cap, runs as uid 1001 with a read-only filesystem, all capabilities dropped, no privilege escalation. Caddy (not ours) handles HTTPS; our site file caps request bodies at 16 KB and removes the `Server` header. No HSTS, on the box rules' advice. | `deploy/compose.yml`, `deploy/trix.caddy`, `docs/deploy.md` |
 
@@ -45,7 +50,7 @@
 - **The owner has full control of their table** (kick, end the game). That's intended.
 - **Look-alike names** ("Seif" and "Seyf") are allowed. Exact duplicates aren't.
 - **A determined attacker with many addresses** could still use up the 200 tables or 1000 connections. For a small private server, that's handled by blocking addresses in our Caddy site file if it ever happens.
-- **No accounts or passwords:** seats are tied to the browser. Clearing the browser's storage gives the seat up, and the owner re-invites.
+- **Guests have no account:** their seats are tied to the browser. Clearing the browser's storage gives the seat up, and the owner re-invites. Accounts are optional and there are no passwords (Google, or a link by email).
 
 ## If something happens
 
