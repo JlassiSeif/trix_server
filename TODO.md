@@ -30,7 +30,8 @@ Adding a game: [docs/adding-a-game.md](docs/adding-a-game.md).
    1. The **French and Arabic** wording (hub pages: `platform/web/src/text.ts`; the Trix table: `games/trix/ui/src/text.ts`; shared bits: `platform/ui/src`). Open questions in Arabic: should "Dineri" have an Arabic spelling (the brand only has the Latin one, so the Arabic pages keep it in Latin letters)? Arabic-script names for the games and contracts, or keep them in Latin letters as now? Card words: a trick is "أكلة", a jack "J", a queen "Q".
    2. The **Privacy** and **Terms** pages (drafts, marked as such on the page) and **About**.
    3. A **contact email** for those pages (they say "an address is coming soon").
-7. **Platform station:** the testing station lives in `games/trix/station`. Its game-independent parts (simulated players, attack scenarios) move to `platform/station` when the second game arrives.
+7. **How games look: one house, many rooms** (principle agreed by Seif, 2026-09-25). The spec `docs/game-look.md` is a DRAFT waiting for his approval and his answers to its §5 (contract icons, card faces, accent colours). Once approved: re-dress the Trix table to it (look only; gameplay unchanged).
+8. **Platform station:** the testing station lives in `games/trix/station`. Its game-independent parts (simulated players, attack scenarios) move to `platform/station` when the second game arrives.
 
 ## Roadmap (Seif, 2026-09-24): if this gets popular, this is where the value is
 The phases are in [docs/architecture.md](docs/architecture.md) §13. Applies to Trix, rami, chkobba and most card games.
