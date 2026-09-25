@@ -13,6 +13,8 @@ export interface Conn {
   close(): void;
   /** The player's address (behind the proxy: the real client address). For per-address limits. */
   ip?: string;
+  /** A signed-in player's account id (after "identify"); guests have none. */
+  uid?: string;
 }
 
 interface SeatState {
@@ -27,6 +29,8 @@ interface SeatState {
   vacant: boolean;
   /** Bots only: one of the game's bot levels. */
   level?: string;
+  /** Humans only: the account of a signed-in player (for stats and ladders later). Never sent to anyone. */
+  uid?: string;
 }
 
 export interface RoomSnapshot {
@@ -142,7 +146,7 @@ export class Room {
       gameVersion: this.module.meta.version,
       invite: this.invite,
       owner: this.owner,
-      seats: this.seats.map((st) => st && { kind: st.kind, name: st.name, token: st.token, botPlaying: st.botPlaying, vacant: st.vacant, ...(st.level ? { level: st.level } : {}) }),
+      seats: this.seats.map((st) => st && { kind: st.kind, name: st.name, token: st.token, botPlaying: st.botPlaying, vacant: st.vacant, ...(st.level ? { level: st.level } : {}), ...(st.uid ? { uid: st.uid } : {}) }),
       state: this.game,
       lastActive: this.lastActive,
       roundEvents: this.roundEvents,
@@ -197,6 +201,14 @@ export class Room {
     });
   }
 
+  linkAccount(seat: Seat, uid: string): void {
+    const st = this.seats[seat];
+    if (st?.kind === "human" && st.uid !== uid) {
+      st.uid = uid;
+      this.hooks.onChange?.(); // saved with the room
+    }
+  }
+
   seatOf(conn: Conn): Seat | null {
     const s = this.seatList.find((i) => this.seats[i]?.conn === conn);
     return s ?? null;
@@ -229,7 +241,7 @@ export class Room {
     if (seat === undefined) throw new RoomError("ROOM_FULL", "The table is full");
     const token = newToken();
     const replacing = this.seats[seat]?.kind === "bot";
-    this.seats[seat] = { kind: "human", name, token, conn, botPlaying: false, vacant: false };
+    this.seats[seat] = { kind: "human", name, token, conn, botPlaying: false, vacant: false, ...(conn.uid ? { uid: conn.uid } : {}) };
     this.awaySince.delete(seat);
     if (creating) this.owner = seat;
     log("info", "seat.joined", { room: this.id, seat, name, owner: creating, replacingBot: replacing, inGame: this.game !== null });
@@ -252,6 +264,7 @@ export class Room {
     }
     st.conn = conn;
     st.botPlaying = false;
+    if (conn.uid) st.uid = conn.uid;
     this.awaySince.delete(seat);
     conn.send({ type: "joined", roomId: this.id, seat, token: st.token! });
     this.changed([]);

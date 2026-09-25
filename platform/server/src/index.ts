@@ -11,8 +11,12 @@
 //   WEB_DIST          the built web app (default platform/web/dist)
 //   TRIX_CLOSED_GAMES comma-separated game ids switched off: no new tables, running ones finish
 //   TRIX_SPEED        tests only: bots and countdowns N times faster
+//   Accounts (optional): FIREBASE_PROJECT_ID, FIREBASE_SERVICE_ACCOUNT_PATH (production key),
+//   FIREBASE_AUTH_EMULATOR_HOST + FIRESTORE_EMULATOR_HOST (local emulators), FIREBASE_AUTH_DOMAIN
+//   (the domain the sign-in pop-up shows: dineri.world in production, behind Caddy)
 
 import { fileURLToPath } from "node:url";
+import { accountsFromEnv } from "./accounts";
 import { startApp } from "./app";
 import { log } from "./log";
 import { TIMING } from "./room";
@@ -33,6 +37,16 @@ const app = await startApp({
   maxRooms: Number(process.env.TRIX_MAX_ROOMS ?? 200),
   trustProxy: process.env.TRIX_TRUST_PROXY === "private" ? "private" : process.env.TRIX_TRUST_PROXY === "1",
   closedGames: (process.env.TRIX_CLOSED_GAMES ?? "").split(",").map((g) => g.trim()).filter(Boolean),
+  accounts: accountsFromEnv(process.env),
+  // Firebase's public web settings for the dineri-world project (public by design: security comes
+  // from the database rules and the authorized domains, not from hiding these).
+  firebaseWeb: {
+    apiKey: process.env.FIREBASE_WEB_API_KEY || "AIzaSyB0R8CFytyPH1-tD8CrKCQSf9h8XR9y2PU",
+    authDomain: process.env.FIREBASE_AUTH_DOMAIN || "dineri-world.firebaseapp.com",
+    projectId: process.env.FIREBASE_PROJECT_ID || "dineri-world",
+    appId: process.env.FIREBASE_WEB_APP_ID || "1:605012986454:web:c4f8781b344d55dd0f09f7",
+    ...(process.env.FIREBASE_AUTH_EMULATOR_HOST ? { authEmulator: `http://${process.env.FIREBASE_AUTH_EMULATOR_HOST}` } : {}),
+  },
   allowedOrigins: process.env.TRIX_ORIGINS ? process.env.TRIX_ORIGINS.split(",").map((o) => o.trim()) : undefined,
 });
 log("info", "server.listening", { url: `http://${host}:${app.port}`, port: app.port, speed, stateFile: process.env.TRIX_STATE_FILE || null, rooms: app.hub.rooms.size });

@@ -3,7 +3,7 @@
 The platform's list, and the index of games. Each game keeps its own list in `games/<game>/TODO.md`. We reconcile these files with the disk at the start of every session. Sources of truth: the disk, Seif, and these files. Anything not written here or confirmed by Seif is an open question, not a decision.
 
 ## Goal
-A home for Tunisian card and table games, played with friends or against bots, at https://trix.rheona.space. If it gets popular: accounts, customization, ladders and events (below).
+A home for Tunisian card and table games, played with friends or against bots, at https://dineri.world (live today at https://trix.rheona.space until the next deploy). If it gets popular: accounts, customization, ladders and events (below).
 
 ## Games
 
@@ -19,7 +19,18 @@ Adding a game: [docs/adding-a-game.md](docs/adding-a-game.md).
 2. **Architecture phase 2, fun for every game:** a settings panel (sounds, memes, music, bot chat, 18+ mode off by default), the sound system, chat bubbles and personas. Trix's content: `games/trix/TODO.md`.
 3. **Own machine before going public** (architecture §11). Which machine? Seif's Oracle free account?
 4. **Dineri at dineri.world** (Seif, 2026-09-25): the hub's name is **Dineri** and its address **dineri.world**, with www and trix.rheona.space redirecting to it. Deploy files are ready; Seif sets the DNS at Namecheap (A `@` → 158.180.55.44, CNAME `www` → dineri.world, parking records removed, no AAAA). The switch-over happens with the next deploy Seif calls, at a quiet moment. DNS set by Seif and verified (2026-09-25); Seif approved serving dineri.world from the Rheona box (he owns both).
-5. **Platform station:** the testing station lives in `games/trix/station`. Its game-independent parts (simulated players, attack scenarios) move to `platform/station` when the second game arrives.
+5. **Accounts: Seif's steps in the Firebase console** (project `dineri-world`). The code is built and tested against the emulators; the real project needs:
+   1. **Firestore:** Build → Firestore Database → Create database → location **europe-west3 (Frankfurt)** → production mode. Then deploy the rules: `firebase deploy --only firestore:rules --project dineri-world` (they deny all browser access; the server has its own key).
+   2. **Authentication:** Build → Authentication → Get started. Sign-in method: enable **Google** (pick the support email) and **Email/Password** with **Email link (passwordless sign-in)** switched on.
+   3. **Authorized domains** (Authentication → Settings): add `dineri.world`.
+   4. **Google sign-in under our own name:** Google Cloud console → APIs & Services → Credentials → the "Web client (auto created by Google Service)" → Authorized redirect URIs: add `https://dineri.world/__/auth/handler` (Caddy passes `/__/` to Firebase).
+   5. **The server's key:** Project settings → Service accounts → Generate new private key; save it as `~/trix/.secrets/firebase-sa.json` on this machine (never in git; `deploy.sh` ships it to the box, owner-only).
+   Until then the live site simply has no sign-in.
+6. **Seif to review, before Dineri opens to everyone:**
+   1. The **French and Arabic** wording (hub pages: `platform/web/src/text.ts`; the Trix table: `games/trix/ui/src/text.ts`; shared bits: `platform/ui/src`). Open questions in Arabic: should "Dineri" have an Arabic spelling (the brand only has the Latin one, so the Arabic pages keep it in Latin letters)? Arabic-script names for the games and contracts, or keep them in Latin letters as now? Card words: a trick is "أكلة", a jack "J", a queen "Q".
+   2. The **Privacy** and **Terms** pages (drafts, marked as such on the page) and **About**.
+   3. A **contact email** for those pages (they say "an address is coming soon").
+7. **Platform station:** the testing station lives in `games/trix/station`. Its game-independent parts (simulated players, attack scenarios) move to `platform/station` when the second game arrives.
 
 ## Roadmap (Seif, 2026-09-24): if this gets popular, this is where the value is
 The phases are in [docs/architecture.md](docs/architecture.md) §13. Applies to Trix, rami, chkobba and most card games.
@@ -39,4 +50,6 @@ The phases are in [docs/architecture.md](docs/architecture.md) §13. Applies to 
 - **Pre-deployment check:** `docs/predeploy-check.md`. Games survive restarts, lost tables are handled, two tabs can't fight over one seat, caps plus security and cache headers.
 - **Hosting:** a guest container on the shared Rheona VPS, under the box's rules (`deploy/new_tenant.md`). `deploy/deploy.sh` builds, ships, proves the container, reloads Caddy only when needed and runs the post-checks; `docs/deploy.md` covers the rest. Live releases: `fbbe767` and `dce18c0` (2026-09-24).
 - **Abandoned tables (2026-09-24):** at the 5-tables-per-address limit, a table nobody is connected to makes way for the new one. The 6-hour cleanup stays.
-- **Last full check (2026-09-25, the restructured hub):** unit tests 129/129 (79 Trix, 50 platform, including a test-only second game), typecheck and build clean, station 31/31, mutation check 8/8, arena (hard > medium > easy, same results as before the move), browser flows 17/17, full games at desktop and phone size, the deploy image builds and serves /, /trix and /api/games.
+- **Accounts and languages (2026-09-25, not deployed):** Firebase Authentication (Google, email link), optional, with profiles in Firestore written only by the server (token checks and database calls without the Firebase Admin library, to stay inside 128 MB). Sign-in window, `/signin` for email links, an account page (name at the table, language, sign out, delete everything). English, French and Arabic (right to left) across the hub and the Trix table, with a language menu; the account's language follows you. A signed-in player's seat remembers their account. Footer, About, Privacy and Terms (drafts), a 404 page, robots.txt and sitemap. Firebase's browser code loads only for people who sign in. Deploy files ready: the key as a mounted secret, Caddy passes `/__/` to Firebase, a post-check for it. Tests: server unit tests, the emulator integration test (`npm run test:accounts`), and `platform/web/e2e/accounts.mjs` (27 checks in a browser: languages, email link, Google, account edit, name at the table, delete), with screenshots in all three languages at desktop and phone size.
+- **Last full check (2026-09-25, accounts and languages):** unit tests 149/149 plus 3 against the emulators, typecheck and build clean, station 31/31, browser flows 17/17, accounts flow 27/27.
+- **Earlier full check (2026-09-25, the restructured hub):** unit tests 129/129 (79 Trix, 50 platform, including a test-only second game), typecheck and build clean, station 31/31, mutation check 8/8, arena (hard > medium > easy, same results as before the move), browser flows 17/17, full games at desktop and phone size, the deploy image builds and serves /, /trix and /api/games.

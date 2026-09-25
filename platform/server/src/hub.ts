@@ -125,6 +125,14 @@ export class Hub {
     return this.roomOf.get(conn)?.id;
   }
 
+  /** A seated player signed in (or their page learned who they are after joining): their seat
+   *  remembers the account. Signing out doesn't take it back: the seat was played by that account. */
+  identified(conn: Conn): void {
+    const room = this.roomOf.get(conn);
+    const seat = room?.seatOf(conn);
+    if (room && seat !== null && seat !== undefined && conn.uid) room.linkAccount(seat, conn.uid);
+  }
+
   disconnected(conn: Conn): void {
     const room = this.roomOf.get(conn);
     this.roomOf.delete(conn);

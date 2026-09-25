@@ -14,6 +14,8 @@ export type ClientRequest =
   /** Create a room for a game and take its first seat as the owner (R-TABLE-2). With `bots`, the
    *  other seats get bots of that level and the game starts at once ("Play against bots"). */
   | { type: "createRoom"; name: string; game?: string; bots?: string }
+  /** Who you are: a Firebase ID token when signed in, null for a guest. Sent before joining. */
+  | { type: "identify"; idToken: string | null }
   /** Join with an invite (new player) or a seat token (returning player, R-TABLE-5). */
   | { type: "joinRoom"; roomId: string; invite?: string; token?: string; name?: string }
   /** A game move, checked by the game's rules. */
@@ -72,6 +74,8 @@ export type ServerMessage<View = unknown, Event = unknown> =
   | { type: "update"; room: RoomView; game: View | null; events: Event[] }
   /** `re` is the `id` of the message that caused it, when that message had one. */
   | { type: "error"; code: string; message: string; re?: number }
+  /** The answer to "identify". */
+  | { type: "identified"; signedIn: boolean }
   /** You were removed from the room (kicked, or you left). */
   | { type: "removed"; reason: "kicked" | "left" | "roomClosed" };
 

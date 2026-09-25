@@ -23,10 +23,16 @@ services:
       TRIX_ORIGINS: https://dineri.world
       # Games switched off (comma-separated ids): no new tables, running ones finish. docs/deploy.md.
       TRIX_CLOSED_GAMES: ""
+      # Accounts (Firebase). The server's key is a secret on the box (deploy.sh copies it from
+      # .secrets/, never in git); without it the site runs with accounts off.
+      FIREBASE_PROJECT_ID: dineri-world
+      FIREBASE_SERVICE_ACCOUNT_PATH: /run/secrets/firebase-sa.json
+      FIREBASE_AUTH_DOMAIN: dineri.world
       # Keep the JS heap well inside mem_limit.
       NODE_OPTIONS: --max-old-space-size=80
     volumes:
       - ./data:/data
+      - ./secrets:/run/secrets:ro
     # SIGTERM saves the rooms and tells browsers to reconnect; give it time.
     stop_grace_period: 10s
     healthcheck:

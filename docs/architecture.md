@@ -87,14 +87,20 @@ Two design points that matter for later games:
 | Data | Where | Why |
 |---|---|---|
 | Live tables | Memory, saved on every change | Speed; they survive restarts today |
-| Accounts, profiles, inventory (what you own), purchases, ratings, match history, events | **PostgreSQL** | Money and ownership need transactions and backups; relational data |
+| Sign-in (who you are) | **Firebase Authentication**, project `dineri-world` | Seif's choice (2026-09-25): Google and email links without building password handling |
+| Profiles (name at the table, language) | **Firestore** (europe-west3, Frankfurt, next to the server), written only by the server | Small documents; the browser never touches the database (firebase/firestore.rules deny all) |
+| Inventory (what you own), purchases, ratings, match history, events | To decide when we build them: Firestore, or PostgreSQL where money and ownership need transactions | Nothing of this exists yet |
 | Card art, table art, avatars, sounds, music | Files behind a CDN (e.g. Cloudflare R2) | Big, cacheable, cheap to serve worldwide |
-| Sessions | A secure cookie with a session id | Works for the website and the game connection |
+| Who is at a table | The browser sends its Firebase sign-in token once per connection ("identify"); the seat remembers the account id, saved with the room and never shown to other players | No cookies, so other websites can't act for you |
 
 ## 7. Accounts
 
 - **Guest first:** anyone can still play with just a name. An account keeps your progress, stats, items and rank, and a guest can turn into an account without losing the game they're in.
-- **Sign-in:** Google and Facebook (widely used in Tunisia), and a login link by email. Phone codes cost money per SMS; later. A managed service (for example Firebase Authentication, already used by other Rheona products) saves building password handling and account recovery.
+- **Sign-in (built 2026-09-25):** Google, and a sign-in link by email, through Firebase Authentication (Seif's choice). Facebook and phone codes can come later. Accounts are optional: guests play everything.
+- **How it fits together:** the page asks `/api/config` whether accounts are on. Firebase's browser code loads only when someone signs in (or was signed in on this browser), so guests don't download it. The server checks sign-in tokens itself against Google's published keys, and reads and writes Firestore through its REST API with its own key. It does not use the Firebase Admin library, which wouldn't fit in the container's 128 MB. Code: `platform/server/src/accounts/`, `platform/web/src/account.ts`.
+- **Your profile:** `GET/PUT/DELETE /api/me` with the token in the Authorization header. Deleting removes the profile and the sign-in account at once.
+- **Languages:** English, French, Arabic (right to left). The choice is kept in the browser, and on the account when signed in; the account's language follows you to a new device.
+- **Local development:** `npm run emulators` runs Firebase's Auth and Firestore emulators on a `demo-` project that can never reach the real one; `npm run test:accounts` tests against them; `platform/web/e2e/accounts.mjs` drives the whole thing in a browser.
 - **Privacy:** minimal data, a privacy policy, account deletion. Players in Europe fall under GDPR, and Tunisia has its own personal-data law.
 
 ## 8. Customization, personas and voice lines

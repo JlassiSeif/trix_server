@@ -1,7 +1,9 @@
 import { useState, type FormEvent } from "react";
 import { NAME_MAX } from "@platform/protocol";
-import { savedName, type Connection, type GameUI } from "@platform/ui";
-import { Fan, Pips, TopBar } from "../brand";
+import { savedName, useErrorText, useLang, useText, type Connection, type GameUI } from "@platform/ui";
+import { useAccount } from "../account";
+import { Fan, Footer, Pips, TopBar } from "../brand";
+import { T } from "../text";
 import { Notices } from "./Notices";
 
 /**
@@ -9,7 +11,14 @@ import { Notices } from "./Notices";
  * An invite link (/r/<room>): take a seat. Both only ask for a name (R-TABLE-1).
  */
 export function Entry({ conn, game, roomId, invite, go }: { conn: Connection; game: GameUI | null; roomId: string | null; invite: string | null; go: (path: string) => void }) {
-  const [name, setName] = useState(savedName.get());
+  const t = useText(T);
+  const lang = useLang();
+  const errorText = useErrorText();
+  const acc = useAccount();
+  // Signed in: your account's name, unless you've typed one here.
+  const [typed, setTyped] = useState<string | null>(null);
+  const name = typed ?? acc.profile?.displayName ?? savedName.get();
+  const setName = setTyped;
   const [busy, setBusy] = useState(false);
   const joining = roomId !== null;
 
@@ -35,42 +44,43 @@ export function Entry({ conn, game, roomId, invite, go }: { conn: Connection; ga
       <main className="game-page">
         <section className="game-intro">
           {game && <Fan game={game} size="lg" />}
-          <p className="eyebrow">{joining ? "You've been invited" : game?.players}</p>
-          <h1>{joining ? "Join the table" : game?.name}</h1>
-          <p className="lede">{joining ? "Pick a name and take your seat. The game starts when every seat is taken." : game?.tagline}</p>
+          <p className="eyebrow">{joining ? t.entry.invited : game?.players[lang]}</p>
+          <h1>{joining ? t.entry.joinTitle : game?.name}</h1>
+          <p className="lede">{joining ? t.entry.joinLede : game?.tagline[lang]}</p>
         </section>
 
         <section className="play-panel">
           <Notices conn={conn} />
-          {joining && !invite && <p className="notice">This link has no invite code. Ask the table owner for the full link.</p>}
+          {joining && !invite && <p className="notice">{t.entry.noInvite}</p>}
           <form onSubmit={submit}>
-            <label htmlFor="name">Your name</label>
-            <input id="name" autoFocus maxLength={NAME_MAX} value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. lam3i" autoComplete="nickname" />
+            <label htmlFor="name">{t.entry.name}</label>
+            <input id="name" autoFocus maxLength={NAME_MAX} value={name} onChange={(e) => setName(e.target.value)} placeholder={t.entry.namePlaceholder} autoComplete="nickname" />
             <button type="submit" className="primary" disabled={!canGo}>
-              {joining ? "Take a seat" : "Create a table"}
+              {joining ? t.entry.takeSeat : t.entry.create}
             </button>
-            {!joining && <p className="hint">You get a link to send to your friends.</p>}
+            {!joining && <p className="hint">{t.entry.createHint}</p>}
           </form>
           {!joining && game && game.levels.length > 0 && (
             <section className="solo">
               <h2 className="divider">
-                <span>or play against bots</span>
+                <span>{t.entry.orBots}</span>
               </h2>
               <div className="solo-levels">
                 {game.levels.map((l, i) => (
                   <button key={l.id} className={`solo-level ${l.id}`} disabled={!canGo} onClick={() => start(l.id)}>
                     <Pips n={i + 1} />
-                    <strong>{l.label}</strong>
-                    <span className="what">{l.what}</span>
+                    <strong>{l.label[lang]}</strong>
+                    <span className="what">{l.what[lang]}</span>
                   </button>
                 ))}
               </div>
             </section>
           )}
-          {conn.error && !(conn.lost && (conn.error.code === "ROOM_NOT_FOUND" || conn.error.code === "BAD_TOKEN")) && <p className="error">{conn.error.message}</p>}
-          {!conn.online && <p className="hint">Connecting to the server…</p>}
+          {conn.error && !(conn.lost && (conn.error.code === "ROOM_NOT_FOUND" || conn.error.code === "BAD_TOKEN")) && <p className="error">{errorText(conn.error)}</p>}
+          {!conn.online && <p className="hint">{t.entry.connecting}</p>}
         </section>
       </main>
+      <Footer go={go} />
     </div>
   );
 }

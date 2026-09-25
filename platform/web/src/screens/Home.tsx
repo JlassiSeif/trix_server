@@ -1,13 +1,15 @@
 import { useEffect, useState } from "react";
 import type { GameListing } from "@platform/protocol";
-import type { Connection, GameUI } from "@platform/ui";
-import { Fan, FaceDown, TopBar } from "../brand";
+import { useLang, useText, type Connection, type GameUI } from "@platform/ui";
+import { Fan, FaceDown, Footer, TopBar } from "../brand";
 import { COMING_SOON, GAMES } from "../games";
+import { T } from "../text";
 import { Notices } from "./Notices";
 
 /** The hub: the games lie on a café table. The ones you can play are face up (docs/architecture.md §10). */
 export function Home({ conn, go }: { conn: Connection; go: (path: string) => void }) {
   // Which games are open right now (a game can be switched off for a moment, §12).
+  const t = useText(T);
   const [open, setOpen] = useState<Record<string, boolean>>({});
   useEffect(() => {
     fetch("/api/games")
@@ -21,19 +23,19 @@ export function Home({ conn, go }: { conn: Connection; go: (path: string) => voi
       <TopBar go={go} />
       <main className="home-main">
         <section className="hero">
-          <p className="eyebrow">Tunisian card and table games</p>
-          <h1>Deal in your friends.</h1>
-          <p className="lede">Send them a link and play at the same table, on a phone or a PC. Nobody around? Play against bots.</p>
+          <p className="eyebrow">{t.home.eyebrow}</p>
+          <h1>{t.home.title}</h1>
+          <p className="lede">{t.home.lede}</p>
         </section>
         <Notices conn={conn} />
-        <section className="felt" aria-label="Games">
+        <section className="felt" aria-label={t.home.gamesAria}>
           <div className="face-up">
             {GAMES.map((g) => (
               <GameCard key={g.id} game={g} closed={open[g.id] === false} go={go} />
             ))}
           </div>
           <div className="face-downs">
-            <p className="felt-label">Coming to the table</p>
+            <p className="felt-label">{t.home.comingLabel}</p>
             <div className="face-down-grid">
               {COMING_SOON.map((name) => (
                 <FaceDown key={name} name={name} />
@@ -42,12 +44,15 @@ export function Home({ conn, go }: { conn: Connection; go: (path: string) => voi
           </div>
         </section>
       </main>
+      <Footer go={go} />
     </div>
   );
 }
 
 /** A game you can play: a face-up card with its name, its cover, and a way in. */
 function GameCard({ game, closed, go }: { game: GameUI; closed: boolean; go: (path: string) => void }) {
+  const t = useText(T);
+  const lang = useLang();
   return (
     <a
       className={`game-card ${closed ? "closed" : ""}`}
@@ -68,11 +73,11 @@ function GameCard({ game, closed, go }: { game: GameUI; closed: boolean; go: (pa
       </span>
       <Fan game={game} />
       <strong className="game-card-name">{game.name}</strong>
-      <span className="game-card-tagline">{game.tagline}</span>
+      <span className="game-card-tagline">{game.tagline[lang]}</span>
       <span className="game-card-meta">
-        {game.players} · bots from easy to hard
+        {game.players[lang]} · {t.home.bots}
       </span>
-      <span className="game-card-play">{closed ? "Back in a moment" : `Play ${game.name}`}</span>
+      <span className="game-card-play">{closed ? t.home.closed : t.home.play(game.name)}</span>
     </a>
   );
 }

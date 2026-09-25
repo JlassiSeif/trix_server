@@ -53,6 +53,9 @@ export interface Connection<View = unknown, Event = unknown> {
   join: (msg: Extract<ClientMessage, { type: "createRoom" | "joinRoom" }>) => void;
   /** Subscribe to game events as they arrive (for animations, toasts and the feed). */
   onEvents: (fn: (events: Event[], room: RoomView, game: View | null) => void) => () => void;
+  /** Signed in: how to get the current sign-in token (sent first on every connection, so seats
+   *  know their account). null: a guest. */
+  identify: (getToken: (() => Promise<string | null>) | null) => void;
 }
 
 export function useConnection(): Connection {
@@ -73,10 +76,31 @@ export function useConnection(): Connection {
   const joinedRoom = useRef<string | null>(null);
   const listeners = useRef(new Set<(e: unknown[], r: RoomView, g: unknown) => void>());
   const stopped = useRef(false);
+  const identity = useRef<(() => Promise<string | null>) | null>(null);
+  // Until "identify" has gone out on this connection, other messages wait here, so the server
+  // knows who is taking a seat before they take it.
+  const ready = useRef(false);
+  const outbox = useRef<ClientMessage[]>([]);
 
   const rawSend = useCallback((msg: ClientMessage) => {
     const ws = socket.current;
-    if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg));
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    if (ready.current) ws.send(JSON.stringify(msg));
+    else outbox.current.push(msg);
+  }, []);
+
+  /** Says who we are (when there's an identity), then lets everything else through. */
+  const handshake = useCallback(async (ws: WebSocket, then: () => void) => {
+    ready.current = false;
+    const getToken = identity.current;
+    if (getToken) {
+      const idToken = await getToken().catch(() => null);
+      if (ws !== socket.current || ws.readyState !== WebSocket.OPEN) return;
+      ws.send(JSON.stringify({ type: "identify", idToken }));
+    }
+    then();
+    ready.current = true;
+    for (const msg of outbox.current.splice(0)) ws.send(JSON.stringify(msg));
   }, []);
 
   useEffect(() => {
@@ -89,12 +113,15 @@ export function useConnection(): Connection {
       socket.current = ws;
       ws.onopen = () => {
         retry = 0;
-        setOnline(true);
-        // Rejoin the seat we had, or send the join we were asked to make.
-        const id = joinedRoom.current;
-        const token = id ? seatToken.get(id) : null;
-        if (id && token) ws.send(JSON.stringify({ type: "joinRoom", roomId: id, token }));
-        else if (pendingJoin.current) ws.send(JSON.stringify(pendingJoin.current));
+        outbox.current = [];
+        void handshake(ws, () => {
+          setOnline(true);
+          // Rejoin the seat we had, or send the join we were asked to make.
+          const id = joinedRoom.current;
+          const token = id ? seatToken.get(id) : null;
+          if (id && token) ws.send(JSON.stringify({ type: "joinRoom", roomId: id, token }));
+          else if (pendingJoin.current) ws.send(JSON.stringify(pendingJoin.current));
+        });
       };
       ws.onmessage = (ev) => {
         let msg: ServerMessage;
@@ -151,6 +178,7 @@ export function useConnection(): Connection {
         }
       };
       ws.onclose = () => {
+        ready.current = false;
         setOnline(false);
         if (stopped.current || replacedRef.current) return;
         retry = Math.min(retry + 1, 5);
@@ -168,7 +196,18 @@ export function useConnection(): Connection {
       clearTimeout(timer);
       socket.current?.close();
     };
-  }, []);
+  }, [handshake]);
+
+  const identify = useCallback<Connection["identify"]>(
+    (getToken) => {
+      identity.current = getToken;
+      const ws = socket.current;
+      if (!ws || ws.readyState !== WebSocket.OPEN) return; // the next connection says it
+      if (getToken) void handshake(ws, () => undefined);
+      else if (ready.current) ws.send(JSON.stringify({ type: "identify", idToken: null }));
+    },
+    [handshake],
+  );
 
   const join = useCallback<Connection["join"]>(
     (msg) => {
@@ -191,5 +230,5 @@ export function useConnection(): Connection {
     reconnectNow.current();
   }, []);
 
-  return { online, roomId, room, game, lastGame, error, removed, replaced, takeOver, lost, send: rawSend, join, onEvents };
+  return { online, roomId, room, game, lastGame, error, removed, replaced, takeOver, lost, send: rawSend, join, onEvents, identify };
 }

@@ -1,0 +1,6 @@
+# Dineri. Tables (/r/…) are private invitations; sign-in and account pages are personal.
+User-agent: *
+Disallow: /r/
+Disallow: /signin
+Disallow: /account
+Sitemap: https://dineri.world/sitemap.xml

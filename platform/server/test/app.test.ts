@@ -11,6 +11,7 @@ import type { ServerMessage as AnyMessage } from "@platform/protocol";
 /** These tests play Trix, so its views and events are typed as Trix's. */
 type ServerMessage = AnyMessage<PlayerView, GameEvent>;
 import { isPrivate, startApp, type App } from "../src/app";
+import { AccountError, TokenError, type Accounts, type Profile, type VerifiedUser } from "../src/accounts";
 
 const dir = mkdtempSync(join(tmpdir(), "trix-app-"));
 const web = join(dir, "web");
@@ -19,6 +20,8 @@ mkdirSync(join(web, "cards"), { recursive: true });
 writeFileSync(join(web, "index.html"), "<!doctype html><title>Trix</title>");
 writeFileSync(join(web, "assets", "app-abc123.js"), "console.log(1)");
 writeFileSync(join(web, "cards", "k_h.png"), "png");
+writeFileSync(join(web, "robots.txt"), "User-agent: *");
+writeFileSync(join(web, "site.webmanifest"), "{}");
 
 const apps: App[] = [];
 async function start(extra: Partial<Parameters<typeof startApp>[0]> = {}) {
@@ -109,6 +112,8 @@ describe("HTTP", () => {
     expect(invite.headers.get("cache-control")).toBe("no-cache");
     const escape = await fetch(`${base}/%2e%2e/%2e%2e/etc/passwd`);
     expect(await escape.text()).not.toContain("root:");
+    expect((await fetch(`${base}/robots.txt`)).headers.get("content-type")).toContain("text/plain");
+    expect((await fetch(`${base}/site.webmanifest`)).headers.get("content-type")).toBe("application/manifest+json");
     expect(await (await fetch(`${base}/api/health`)).json()).toMatchObject({ ok: true });
     expect(await (await fetch(`${base}/api/stats`)).json()).toMatchObject({ rooms: 0, sockets: 0 });
   });
@@ -259,5 +264,101 @@ describe("security (see games/trix/station/src/security.ts for the full attack s
     expect((await fetch(`${base}/index.html%00.png`)).status).toBe(400);
     expect((await fetch(`${base}/api/stats`, { headers: { "x-forwarded-for": "203.0.113.1" } })).status).toBe(404);
     expect((await fetch(`${base}/api/stats`)).status).toBe(200);
+  });
+});
+
+/** Accounts without Firebase: the token "good-<uid>" is a signed-in player; profiles live in a Map. */
+function fakeAccounts() {
+  const profiles = new Map<string, Profile>();
+  const verify = async (t: unknown): Promise<VerifiedUser> => {
+    if (typeof t !== "string" || !t.startsWith("good-")) throw new TokenError("bad");
+    return { uid: t.slice(5), email: `${t.slice(5)}@example.com`, name: null, provider: "password" };
+  };
+  const profile = async (u: VerifiedUser, lang?: unknown) => {
+    if (!profiles.has(u.uid)) profiles.set(u.uid, { uid: u.uid, displayName: u.uid, language: lang === "fr" ? "fr" : "en", email: u.email, provider: u.provider, createdAt: "now" });
+    return profiles.get(u.uid)!;
+  };
+  const update = async (u: VerifiedUser, patch: { displayName?: unknown }) => {
+    if (patch.displayName === "") throw new AccountError("BAD_NAME", "Pick a name");
+    const p = { ...(await profile(u)), ...(typeof patch.displayName === "string" ? { displayName: patch.displayName } : {}) };
+    profiles.set(u.uid, p);
+    return p;
+  };
+  const del = async (u: VerifiedUser) => void profiles.delete(u.uid);
+  return { accounts: { verify, profile, update, delete: del } as unknown as Accounts, profiles };
+}
+const FIREBASE_WEB = { apiKey: "k", authDomain: "dineri.world", projectId: "dineri-world", appId: "a" };
+
+describe("accounts (optional: guests play as before)", () => {
+  it("without accounts, the page is told there is no sign-in, and the policy allows nothing extra", async () => {
+    const app = await start({ firebaseWeb: FIREBASE_WEB });
+    const base = `http://127.0.0.1:${app.port}`;
+    const res = await fetch(`${base}/api/config`);
+    expect(await res.json()).toEqual({ accounts: false, firebase: null });
+    expect(res.headers.get("content-security-policy")).not.toContain("google");
+    expect((await fetch(`${base}/api/me`, { headers: { authorization: "Bearer good-a" } })).status).toBe(404);
+  });
+
+  it("with accounts: the Firebase settings, Google's sign-in allowed, and your profile with your token", async () => {
+    const { accounts, profiles } = fakeAccounts();
+    const app = await start({ accounts, firebaseWeb: FIREBASE_WEB });
+    const base = `http://127.0.0.1:${app.port}`;
+    const config = await fetch(`${base}/api/config`);
+    expect(await config.json()).toEqual({ accounts: true, firebase: FIREBASE_WEB });
+    const csp = config.headers.get("content-security-policy")!;
+    expect(csp).toContain("script-src 'self' https://apis.google.com");
+    expect(csp).toContain("https://identitytoolkit.googleapis.com");
+    expect(csp).toContain("frame-src 'self' https://dineri.world");
+
+    const as = (token: string | null, init: RequestInit = {}) =>
+      fetch(`${base}/api/me?lang=fr`, { ...init, headers: { ...(token ? { authorization: `Bearer ${token}` } : {}), "content-type": "application/json" } });
+    expect((await as(null)).status).toBe(401);
+    expect((await as("forged")).status).toBe(401);
+    const me = await as("good-amel");
+    expect(me.headers.get("cache-control")).toBe("no-store");
+    expect(await me.json()).toMatchObject({ uid: "amel", displayName: "amel", language: "fr" });
+    expect(await (await as("good-amel", { method: "PUT", body: JSON.stringify({ displayName: "Amel" }) })).json()).toMatchObject({ displayName: "Amel" });
+    const bad = await as("good-amel", { method: "PUT", body: JSON.stringify({ displayName: "" }) });
+    expect(bad.status).toBe(400);
+    expect(await bad.json()).toMatchObject({ error: "BAD_NAME" });
+    expect((await as("good-amel", { method: "PUT", body: "{not json" })).status).toBe(400);
+    expect((await as("good-amel", { method: "PUT", body: JSON.stringify({ displayName: "x".repeat(5000) }) })).status).toBe(413);
+    expect((await as("good-amel", { method: "POST", body: "{}" })).status).toBe(405);
+    expect((await as("good-amel", { method: "DELETE" })).status).toBe(200);
+    expect(profiles.has("amel")).toBe(false);
+    // Other writes are still refused everywhere else.
+    expect((await fetch(`${base}/lobby`, { method: "POST" })).status).toBe(405);
+  });
+
+  it("a signed-in player's seat remembers their account (saved, never shown to others); guests have none", async () => {
+    const { accounts } = fakeAccounts();
+    const stateFile = join(dir, "rooms-accounts.json");
+    const app = await start({ accounts, firebaseWeb: FIREBASE_WEB, stateFile });
+    const c = await Client.open(app.port);
+    c.send({ type: "identify", idToken: "good-amel" });
+    c.send({ type: "createRoom", name: "Amel" }); // sent at once: waits for the identify check
+    await c.until(() => !!c.last("joined"));
+    expect(c.inbox[0]).toEqual({ type: "identified", signedIn: true });
+    const guest = await Client.open(app.port);
+    guest.send({ type: "identify", idToken: "forged" });
+    await guest.until(() => !!guest.last("identified"));
+    expect(guest.last("identified")!.signedIn).toBe(false);
+
+    // A page that learns who you are after you sat down (e.g. Firebase was still loading).
+    const late = await Client.open(app.port);
+    late.send({ type: "createRoom", name: "Sami" });
+    await late.until(() => !!late.last("joined"));
+    late.send({ type: "identify", idToken: "good-sami" });
+    await late.until(() => !!late.last("identified"));
+    expect(JSON.stringify(app.hub.rooms.get(late.last("joined")!.roomId))).toContain('"uid":"sami"');
+
+    const room = app.hub.rooms.get(c.last("joined")!.roomId)!;
+    const snap = JSON.stringify(room);
+    expect(snap).toContain('"uid":"amel"');
+    expect(JSON.stringify(c.inbox)).not.toContain("amel\"");
+    expect(JSON.stringify(c.last("update"))).not.toContain('"uid"');
+    c.close();
+    guest.close();
+    late.close();
   });
 });

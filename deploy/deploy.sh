@@ -34,6 +34,7 @@ postchecks() {
   echo "Ours:"
   check hub        "https://$SITE/"                           200 || ours=1
   check hub-api    "https://$SITE/api/health"                 200 || ours=1
+  check sign-in    "https://$SITE/__/auth/handler"            200 || ours=1
   for name in $REDIRECTS; do check "$name" "https://$name/" 301 || ours=1; done
   if [ $bad = 1 ]; then
     echo "A NEIGHBOUR check failed: back out now (see docs/deploy.md) and tell the owner."
@@ -64,7 +65,15 @@ ssh_ 'gzip -d | docker load -q' < ".deploy/trix-web-$SHA.tar.gz"
 ssh_ "docker image inspect trix-web:latest >/dev/null 2>&1 && docker tag trix-web:latest trix-web:prev; docker tag trix-web:$SHA trix-web:latest"
 
 # 3. Our folder and compose file; start (or recreate) our container only.
-ssh_ "install -d -m 700 $APP_DIR $APP_DIR/data"
+ssh_ "install -d -m 700 $APP_DIR $APP_DIR/data $APP_DIR/secrets"
+# The Firebase server key (accounts): from .secrets/ here, owner-only there. Without it, accounts are off.
+if [ -f .secrets/firebase-sa.json ]; then
+  scp_ -q .secrets/firebase-sa.json "$HOST:$APP_DIR/secrets/firebase-sa.json"
+  ssh_ "chmod 600 $APP_DIR/secrets/firebase-sa.json"
+  echo "Accounts: server key shipped"
+else
+  echo "Accounts: no .secrets/firebase-sa.json here, so the site runs without sign-in"
+fi
 scp_ -q deploy/compose.yml "$HOST:$APP_DIR/docker-compose.yml"
 ssh_ "cd $APP_DIR && docker compose up -d --quiet-pull 2>&1 | tail -3"
 

@@ -8,6 +8,7 @@ import { readFile } from "node:fs/promises";
 import { extname, resolve, sep } from "node:path";
 import { WebSocketServer, type WebSocket } from "ws";
 import type { ServerMessage } from "@platform/protocol";
+import { AccountError, TokenError, type Accounts, type VerifiedUser } from "./accounts";
 import { Hub, type HubSnapshot } from "./hub";
 import { RateLimiter } from "./limiter";
 import { log } from "./log";
@@ -34,6 +35,10 @@ export interface AppOptions {
   maxJoinFailures?: number;
   /** Games switched off: no new tables; tables already playing finish. */
   closedGames?: string[];
+  /** Accounts (Firebase), or null/absent: no sign-in on offer. */
+  accounts?: Accounts | null;
+  /** Firebase's public web settings, handed to the page by /api/config. */
+  firebaseWeb?: { apiKey: string; authDomain: string; projectId: string; appId: string; authEmulator?: string };
   /** The games on offer (default: all). Tests pass their own. */
   games?: ConstructorParameters<typeof Hub>[0] extends infer O ? (O extends { games?: infer G } ? G : never) : never;
 }
@@ -69,15 +74,36 @@ const MIME: Record<string, string> = {
   ".ico": "image/x-icon",
   ".json": "application/json",
   ".woff2": "font/woff2",
+  ".woff": "font/woff",
+  ".webmanifest": "application/manifest+json",
+  ".txt": "text/plain; charset=utf-8",
+  ".xml": "application/xml; charset=utf-8",
 };
 
-const SECURITY_HEADERS = {
+/** The content policy. With accounts on, Firebase sign-in also needs Google's sign-in script, the
+ *  sign-in page's frame (our own domain behind Caddy, or <project>.firebaseapp.com) and Google's
+ *  token endpoints; with the emulator, its local address. Nothing else ever loads. */
+export function contentPolicy(web?: AppOptions["firebaseWeb"]): string {
+  const auth = web ? ` https://identitytoolkit.googleapis.com https://securetoken.googleapis.com${web.authEmulator ? ` ${web.authEmulator}` : ""}` : "";
+  const frames = web ? ` https://${web.authDomain}${web.authEmulator ? ` ${web.authEmulator}` : ""}` : "";
+  return [
+    "default-src 'self'",
+    "img-src 'self' data:",
+    "style-src 'self' 'unsafe-inline'",
+    `script-src 'self'${web ? " https://apis.google.com" : ""}`,
+    `connect-src 'self'${auth}`,
+    `frame-src 'self'${frames}`,
+    "frame-ancestors 'none'",
+    "base-uri 'none'",
+    "form-action 'self'",
+  ].join("; ");
+}
+const BASE_HEADERS: Record<string, string> = {
   "x-content-type-options": "nosniff",
   // Invite links carry a code in the address: never pass it on to other sites.
   "referrer-policy": "no-referrer",
   "x-frame-options": "DENY",
-  "content-security-policy":
-    "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'",
+  "content-security-policy": contentPolicy(),
 };
 
 /** Vite's hashed files never change; the page itself must always be fresh so a deploy takes effect. */
@@ -91,6 +117,9 @@ export async function startApp(opts: AppOptions): Promise<App> {
   const webDist = resolve(opts.webDist);
   const maxSockets = opts.maxSockets ?? 1000;
   const rate = opts.rate ?? { perSecond: 40, burst: 80 };
+  const accounts = opts.accounts ?? null;
+  const web = accounts ? opts.firebaseWeb : undefined;
+  const SECURITY_HEADERS = { ...BASE_HEADERS, "content-security-policy": contentPolicy(web) };
   // Declared first: restoring rooms below already triggers a save.
   let closing = false;
   let saveTimer: ReturnType<typeof setTimeout> | null = null;
@@ -180,6 +209,74 @@ export async function startApp(opts: AppOptions): Promise<App> {
     }
   }
 
+  function json(res: ServerResponse, status: number, body: unknown): void {
+    res.writeHead(status, { ...SECURITY_HEADERS, "content-type": "application/json", "cache-control": "no-store" }).end(JSON.stringify(body));
+  }
+
+  /** A small JSON body (profile edits are a few dozen bytes). */
+  function readBody(req: IncomingMessage, max = 2048): Promise<unknown> {
+    return new Promise((ok, fail) => {
+      let size = 0;
+      const chunks: Buffer[] = [];
+      req.on("data", (c: Buffer) => {
+        size += c.length;
+        if (size > max) {
+          // Stop reading; the answer goes out with "connection: close", which ends the rest.
+          req.removeAllListeners("data");
+          req.pause();
+          fail(new AccountError("TOO_LARGE", "Request too large"));
+        } else chunks.push(c);
+      });
+      req.on("end", () => {
+        try {
+          ok(size ? JSON.parse(Buffer.concat(chunks).toString("utf8")) : {});
+        } catch {
+          fail(new AccountError("BAD_REQUEST", "Not JSON"));
+        }
+      });
+      req.on("error", fail);
+    });
+  }
+
+  // Profile requests: a handful per visit. Each address gets a burst of 20, then 5 a second.
+  const apiLimits = new Map<string, RateLimiter>();
+
+  /** GET, PUT or DELETE your profile, with your sign-in token in the Authorization header (never a
+   *  cookie, so other websites can't make your browser do it). */
+  async function handleMe(req: IncomingMessage, res: ServerResponse): Promise<void> {
+    if (!accounts) return json(res, 404, { error: "ACCOUNTS_OFF", message: "Accounts are not available right now." });
+    const ip = clientIp(req);
+    let limiter = apiLimits.get(ip);
+    if (!limiter) apiLimits.set(ip, (limiter = new RateLimiter(5, 20)));
+    if (apiLimits.size > 10_000) apiLimits.clear();
+    if (!limiter.take()) return json(res, 429, { error: "RATE_LIMITED", message: "Too many requests. Wait a moment." });
+    const bearer = /^Bearer (.+)$/.exec(req.headers.authorization ?? "")?.[1];
+    let user: VerifiedUser;
+    try {
+      user = await accounts.verify(bearer);
+    } catch (e) {
+      if (e instanceof TokenError) return json(res, 401, { error: "SIGNED_OUT", message: "Please sign in again." });
+      throw e;
+    }
+    try {
+      if (req.method === "GET") return json(res, 200, await accounts.profile(user, new URL(req.url!, "http://x").searchParams.get("lang")));
+      if (req.method === "PUT") return json(res, 200, await accounts.update(user, (await readBody(req)) as { displayName?: unknown; language?: unknown }));
+      if (req.method === "DELETE") {
+        await accounts.delete(user);
+        log("info", "account.deleted", {});
+        return json(res, 200, { deleted: true });
+      }
+      res.writeHead(405, { ...SECURITY_HEADERS, allow: "GET, PUT, DELETE" }).end();
+    } catch (e) {
+      if (e instanceof AccountError && e.code === "TOO_LARGE") {
+        res.setHeader("connection", "close");
+        return json(res, 413, { error: e.code, message: e.message });
+      }
+      if (e instanceof AccountError) return json(res, 400, { error: e.code, message: e.message });
+      throw e;
+    }
+  }
+
   // Slow-request attacks: give up on clients that dribble their request in. Node only enforces
   // these timeouts when it checks its connections, every 30 s by default: check every 2 s.
   const server: Server = createServer({ headersTimeout: 10_000, requestTimeout: 15_000, connectionsCheckingInterval: 2_000 }, (req, res) => {
@@ -190,6 +287,18 @@ export async function startApp(opts: AppOptions): Promise<App> {
     if (req.url === "/api/games") {
       // The home page's list of games, with whether each is open right now.
       res.writeHead(200, { ...SECURITY_HEADERS, "content-type": "application/json", "cache-control": "no-store" }).end(JSON.stringify(hub.listGames()));
+      return;
+    }
+    if (req.url === "/api/config") {
+      // What the page needs to offer sign-in: whether accounts are on, and Firebase's public settings.
+      json(res, 200, { accounts: !!web, firebase: web ?? null });
+      return;
+    }
+    if (req.url === "/api/me" || req.url?.startsWith("/api/me?")) {
+      handleMe(req, res).catch((e) => {
+        log("error", "api.me.failed", { error: e });
+        if (!res.headersSent) json(res, 500, { error: "SERVER_ERROR", message: "Something went wrong. Try again in a moment." });
+      });
       return;
     }
     if (req.method !== "GET" && req.method !== "HEAD") {
@@ -259,6 +368,9 @@ export async function startApp(opts: AppOptions): Promise<App> {
     // down for every other table, and is logged once rather than once per message.
     const limiter = new RateLimiter(rate.perSecond, rate.burst);
     let cutOff = false;
+    // Messages are handled in order. "identify" (a signed-in player's token) is checked with Google's
+    // keys, which can take a moment: anything sent after it waits for it.
+    let queue: Promise<void> = Promise.resolve();
     socket.on("message", (data) => {
       if (cutOff) return;
       if (!limiter.take()) {
@@ -268,8 +380,42 @@ export async function startApp(opts: AppOptions): Promise<App> {
         socket.close(1008, "rate limited");
         return;
       }
-      hub.receive(conn, data.toString());
+      const raw = data.toString();
+      queue = queue
+        .then(async () => {
+          if (raw.includes('"identify"') && isIdentify(raw)) return identify(raw);
+          hub.receive(conn, raw);
+        })
+        .catch((e) => log("error", "ws.messageFailed", { error: e }));
     });
+    const isIdentify = (raw: string) => {
+      try {
+        return (JSON.parse(raw) as { type?: unknown }).type === "identify";
+      } catch {
+        return false;
+      }
+    };
+    const identify = async (raw: string) => {
+      let token: unknown;
+      try {
+        token = (JSON.parse(raw) as { idToken?: unknown }).idToken;
+      } catch {
+        return conn.send({ type: "error", code: "BAD_MESSAGE", message: "Not JSON" });
+      }
+      if (token === null || token === undefined || !accounts) {
+        conn.uid = undefined; // signed out, or no accounts on this server: a guest
+        return conn.send({ type: "identified", signedIn: false });
+      }
+      try {
+        conn.uid = (await accounts.verify(token)).uid;
+        hub.identified(conn);
+        conn.send({ type: "identified", signedIn: true });
+      } catch (e) {
+        conn.uid = undefined;
+        if (!(e instanceof TokenError)) log("warn", "ws.identifyFailed", { error: e });
+        conn.send({ type: "identified", signedIn: false });
+      }
+    };
     socket.on("close", (code) => {
       log("debug", "ws.close", { code });
       hub.disconnected(conn);

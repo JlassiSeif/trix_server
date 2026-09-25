@@ -19,7 +19,9 @@
     "e2e": "node platform/web/e2e/play-vs-bots.mjs e2e-out",
     "e2e:timed": "node platform/web/e2e/timed-ui.mjs",
     "station": "npm run build && tsx games/trix/station/src/main.ts",
-    "arena": "tsx games/trix/station/src/arena.ts"
+    "arena": "tsx games/trix/station/src/arena.ts",
+    "test:accounts": "firebase/emulators.sh \"npx vitest run --root platform/server test/accounts.emulator.test.ts\"",
+    "emulators": "firebase/emulators.sh"
   },
   "devDependencies": {
     "@types/node": "26.6.2",

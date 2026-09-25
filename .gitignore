@@ -12,3 +12,8 @@ e2e-out/
 .station-runs/
 .data/
 .deploy/
+
+# secrets (the Firebase server key lives here locally; on the box it is mounted, never in git)
+.secrets/
+firebase-debug.log
+firestore-debug.log

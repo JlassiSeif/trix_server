@@ -45,7 +45,8 @@ Seif owns this project. He's the product owner and the source of the rules; Clau
 |---|---|
 | `platform/sdk` | The game contract (GameModule): what a game provides so the platform can run it |
 | `platform/server` | Rooms, seats, invites, reconnects, bot scheduling, persistence, security. Knows no game |
-| `platform/protocol`, `platform/ui`, `platform/web` | Messages; the shared screen kit; the hub site (home, game pages, lobby) |
+| `platform/protocol`, `platform/ui`, `platform/web` | Messages; the shared screen kit (connection, languages `i18n.ts`, server error lines `errors.ts`); the hub site (home, game pages, lobby, sign-in, account, about/privacy/terms, 404) |
+| `platform/server/src/accounts`, `platform/web/src/account.ts`, `firebase/` | Accounts (Firebase project `dineri-world`): token checks, Firestore over REST, the browser side, emulator config and database rules. `docs/architecture.md` §6–7 |
 | `games/trix` | Trix: `engine/` (rules, bots, module.ts), `ui/`, `station/` (station, arena, mutants), `docs/`, RULES/TODO/CHANGELOG |
 | `deploy/` | Dockerfile, compose.yml, trix.caddy, deploy.sh. `deploy/new_tenant.md` is the Rheona box owner's rules: git-excluded, never commit it |
 | `brand/` | Dineri's locked identity: BRAND.md, tokens, logos, icons, share image, LOCK.json |
@@ -62,6 +63,7 @@ Adding a game follows `docs/adding-a-game.md`, starting with a rules walkthrough
 | Bots | `npm run arena` (every level clearly beats the one below; hard under 30 ms at the 99th percentile) |
 | Server or contract | server tests (including `test/contract.test.ts`, the test-only second game); the station |
 | Screens | `node platform/web/e2e/connections.mjs`; a full game: `TRIX_SPEED=10 PORT=8123 node platform/server/dist/index.js` then `node platform/web/e2e/play-vs-bots.mjs OUT --viewport 390x844` (and 360x740, and desktop) |
+| Accounts or languages | `npm run test:accounts` (the emulators start and stop around it); for the browser flow run `npm run emulators` and a server against them (see the header of `platform/web/e2e/accounts.mjs`), then `node platform/web/e2e/accounts.mjs OUT --state <rooms file>`: it screenshots every new page in all three languages at both sizes. Read them. |
 | How anything looks | **Look before handing it over.** `node platform/web/e2e/look.mjs OUT --base URL --tag before` (hub pages at desktop and phone size), change, `--tag after`, then read the screenshots and judge them honestly. Seif caught a plain first version of the hub that nobody had looked at. |
 | Before a deploy | all of the above (the hub-deploy skill) |
 
@@ -76,6 +78,10 @@ Run long suites in the background and wait for the notification; don't poll.
 - **Bots never see the game state:** only their view and the round's public events (the tests enforce it). The engine stays free of Node and React. Bot code must never end up in the browser bundle (the engine is marked side-effect free; heavy bot tables are computed lazily).
 - **Vite inlines small images into scripts** unless `assetsInlineLimit: 0`; keep art as real files.
 - **Phones:** checked with browser viewport screenshots (390×844, 360×740). Seif stopped deeper phone testing; no device simulation. A phone held sideways shows "Turn your phone upright".
+- **Every word on screen lives in a catalog** (`texts({ en, fr, ar })`): the type checker refuses a language that misses a line. French and Arabic are drafts until Seif reviews them; never write Derja for him. Game and contract names, and the name Dineri, stay in Latin letters in Arabic until Seif decides otherwise.
+- **Arabic, right to left:** the page flips (`<html dir="rtl">`), the card table does not (`dir="ltr"` on the felt, so seats go round the same way). Wrap signed numbers ("+10", "×2", "=1") in `ltr()` or they come out as "10+". No letter-spacing or capitals on Arabic text.
+- **Accounts stay optional and light:** guests must never download Firebase (accounts.mjs checks it). Never show Firebase's own error messages; map codes to lines in the catalog.
+- **The Firestore emulator needs Java 21;** this machine has 17, so `firebase/emulators.sh` uses a portable runtime in `~/.cache/jdk21` (Temurin 21 JRE, downloaded 2026-09-25). The emulators use the project `demo-dineri`, which can never reach the real one.
 - **Commits touch one game's folder or the platform, never both,** so `git log -- games/<game>` is that game's history. End commit messages with the attribution line the system prompt gives.
 
 ## 7. Talking to Seif
