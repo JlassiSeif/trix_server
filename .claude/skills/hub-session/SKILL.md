@@ -50,7 +50,7 @@ Seif owns this project. He's the product owner and the source of the rules; Clau
 | `games/trix` | Trix: `engine/` (rules, bots, module.ts), `ui/`, `station/` (station, arena, mutants), `docs/`, RULES/TODO/CHANGELOG |
 | `deploy/` | Dockerfile, compose.yml, trix.caddy, deploy.sh. `deploy/new_tenant.md` is the Rheona box owner's rules: git-excluded, never commit it |
 | `brand/` | Dineri's locked identity: BRAND.md, tokens, logos, icons, share image, LOCK.json |
-| `docs/` | architecture, adding-a-game, deploy, security, predeploy-check |
+| `docs/` | architecture, adding-a-game, game-look (how games look), deploy, security, predeploy-check |
 | `archive/` | The 2023 C++/SDL code: reference only |
 
 Adding a game follows `docs/adding-a-game.md`, starting with a rules walkthrough with Seif.
@@ -78,6 +78,7 @@ Run long suites in the background and wait for the notification; don't poll.
 - **Bots never see the game state:** only their view and the round's public events (the tests enforce it). The engine stays free of Node and React. Bot code must never end up in the browser bundle (the engine is marked side-effect free; heavy bot tables are computed lazily).
 - **Vite inlines small images into scripts** unless `assetsInlineLimit: 0`; keep art as real files.
 - **Phones:** checked with browser viewport screenshots (390×844, 360×740). Seif stopped deeper phone testing; no device simulation. A phone held sideways shows "Turn your phone upright".
+- **One house, many rooms** (`docs/game-look.md`, approved 2026-09-25): games draw with the kit (`platform/ui`: controls, panels, `SeatTag`, `cardBackUrl`, `<TableHeader />`) and the brand's tokens and fonts only; `platform/ui/test/look.test.ts` fails otherwise. Kit buttons glow brass by default: quiet ones need `box-shadow: none`. Reem Kufi's "1" looks like an "l" at small sizes: small numbers use Rubik.
 - **Every word on screen lives in a catalog** (`texts({ en, fr, ar })`): the type checker refuses a language that misses a line. French and Arabic are drafts until Seif reviews them; never write Derja for him. Game and contract names, and the name Dineri, stay in Latin letters in Arabic until Seif decides otherwise.
 - **Arabic, right to left:** the page flips (`<html dir="rtl">`), the card table does not (`dir="ltr"` on the felt, so seats go round the same way). Wrap signed numbers ("+10", "×2", "=1") in `ltr()` or they come out as "10+". No letter-spacing or capitals on Arabic text.
 - **Accounts stay optional and light:** guests must never download Firebase (accounts.mjs checks it). Never show Firebase's own error messages; map codes to lines in the catalog.
