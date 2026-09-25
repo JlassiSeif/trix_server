@@ -3,6 +3,7 @@
 Versions of the Trix game (rules, bots and table screens). Releases are tagged `trix@<version>`. Rolling Trix back on its own: see `docs/deploy.md` ("Rolling back one game").
 
 ## Unreleased
+- **Drag and drop, and premoves like chess.com** (R-TABLE-14, Seif 2026-09-25): tap or drag a card onto the table to play it; before your turn, the same gesture premoves it, and it plays by itself when your turn comes, or is cancelled with a notice if it can't be played then. Tap it again, tap the table or right-click to cancel. Cards that surely can't follow the suit led can't be premoved.
 - **The table in Dineri's house style** (docs/game-look.md, approved by Seif 2026-09-25): the brand's fonts and colours, the felt with its brass rim, ivory cards for choosing, summaries and game over, night panels with Dineri's name and the language menu, the shared seat look with bot levels in pips, Dineri's card back. Seif's hand-drawn contract icons from 2023 stay as drawn, on an ivory tile. Layout, gameplay and rules unchanged.
 - **Three languages** (R-TABLE-9): English, French, Arabic.
 

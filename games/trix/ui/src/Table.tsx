@@ -14,6 +14,7 @@ import {
 import type { RoomView } from "@platform/protocol";
 import { InviteLink, LeaveButton, SeatTag as Seat_, TableHeader, dirOf, list, ltr, seatName, useErrorText, useLang, useText, useTick, type Connection } from "@platform/ui";
 import { Card, ContractIcon } from "./cards";
+import { Hand } from "./hand";
 import { LEVELS } from "./levels";
 import { CONTRACT_ORDER, T, cardLabel, describe } from "./text";
 import "./trix.css";
@@ -133,11 +134,58 @@ export function Table({ conn: anyConn }: { conn: Connection }) {
   const canPeek = game.legal.some((a) => a.type === "peekLastTrick");
   const myTurn = game.turn === me && room.status === "playing";
 
+  // R-TABLE-14: premoves. Chosen before your turn, kept only here (nobody else sees them), played
+  // the moment your turn comes if they're legal then, cancelled with a notice if not.
+  const [premove, setPremove] = useState<CardId | null>(null);
+  const [dragging, setDragging] = useState(false);
+  const premoveWindow = room.status === "playing" && (game.phase === "tricks" || game.phase === "trix") && game.turn !== me;
+  const premovable = (c: CardId) => !surelyIllegal(game, me, c);
+  const flash = (text: string) => {
+    const id = ++counter.current;
+    setToast({ id, text });
+    setTimeout(() => setToast((cur) => (cur?.id === id ? null : cur)), 2600);
+  };
+  const play = (c: CardId) => conn.send({ type: "action", action: { type: "play", card: c } });
+  const choose = (c: CardId) => {
+    if (myTurn) {
+      if (plays.has(c)) {
+        setPremove(null);
+        play(c);
+      }
+    } else if (premoveWindow) setPremove((cur) => (cur === c || !premovable(c) ? null : c));
+  };
+  useEffect(() => {
+    if (!premove) return;
+    const inPlay = room.status === "playing" && (game.phase === "tricks" || game.phase === "trix") && game.hand.includes(premove);
+    if (!inPlay) return setPremove(null); // the contract ended, or the table paused
+    if (game.turn === me) {
+      setPremove(null);
+      if (plays.has(premove)) play(premove);
+      else flash(t.premove.cancelled(cardLabel(premove)));
+    } else if (!premovable(premove)) {
+      setPremove(null); // a suit was led that you hold: it can't be played any more
+      flash(t.premove.cancelled(cardLabel(premove)));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [game, room.status, premove]);
+  const clearPremove = (e: React.PointerEvent) => {
+    if (premove && !(e.target as HTMLElement).closest(".hand .card, button")) setPremove(null);
+  };
+
   return (
     <div className="table-screen">
       {/* The table keeps its geometry in every language (seats go round the same way); the
           words on it follow the page's direction. */}
-      <div className={`felt phase-${game.phase}`} dir="ltr">
+      <div
+        className={`felt phase-${game.phase} ${dragging ? "dropping" : ""}`}
+        dir="ltr"
+        onPointerDown={clearPremove}
+        onContextMenu={(e) => {
+          if (!premove) return;
+          e.preventDefault();
+          setPremove(null);
+        }}
+      >
         <ContractBadge game={game} name={name} />
         <button className="side-toggle secondary" onClick={() => setSideOpen(true)}>
           {t.scores}
@@ -156,7 +204,7 @@ export function Table({ conn: anyConn }: { conn: Connection }) {
         </div>
 
         <div className="me">
-          <TurnHint game={game} room={room} name={name} />
+          <TurnHint game={game} room={room} name={name} premove={premove} />
           <div className="me-info">
             <SeatTag seat={me} room={room} game={game} />
             <div className="me-actions">
@@ -172,20 +220,27 @@ export function Table({ conn: anyConn }: { conn: Connection }) {
               )}
             </div>
           </div>
-          <div className={`hand ${myTurn ? "my-turn" : ""}`}>
-            {game.hand.map((c) => {
-              const legal = plays.has(c);
-              return (
-                <Card
-                  key={c}
-                  id={c}
-                  className={myTurn ? (legal ? "legal" : "illegal") : ""}
-                  title={myTurn ? (legal ? t.play(cardLabel(c)) : t.cantPlay(cardLabel(c))) : cardLabel(c)}
-                  onClick={legal ? () => conn.send({ type: "action", action: { type: "play", card: c } }) : undefined}
-                />
-              );
-            })}
-          </div>
+          <Hand
+            cards={game.hand}
+            myTurn={myTurn}
+            playable={(c) => plays.has(c)}
+            premovable={premovable}
+            premoveWindow={premoveWindow}
+            premove={premove}
+            onChoose={choose}
+            onDragging={setDragging}
+            title={(c) =>
+              myTurn
+                ? plays.has(c)
+                  ? t.play(cardLabel(c))
+                  : t.cantPlay(cardLabel(c))
+                : premove === c
+                  ? t.premove.cancelTitle
+                  : premoveWindow && premovable(c)
+                    ? t.premove.title(cardLabel(c))
+                    : cardLabel(c)
+            }
+          />
         </div>
 
         {toast && (
@@ -291,7 +346,16 @@ function Opponent({ seat, position, room, game }: { seat: Seat; position: Positi
   );
 }
 
-function TurnHint({ game, room, name }: { game: PlayerView; room: RoomView; name: (s: Seat) => string }) {
+/** R-TABLE-14 §4: the suit led is known, you haven't played in this trick, and you hold that suit:
+ *  any other card can't be played on your turn. (The server's list of legal moves decides in the end.) */
+function surelyIllegal(game: PlayerView, me: Seat, c: CardId): boolean {
+  if (game.phase !== "tricks" || game.trick.length === 0 || game.trick.some((p) => p.seat === me)) return false;
+  const suit = (id: CardId) => id.slice(id.indexOf("_") + 1);
+  const led = suit(game.trick[0]!.card);
+  return suit(c) !== led && game.hand.some((h) => suit(h) === led);
+}
+
+function TurnHint({ game, room, name, premove }: { game: PlayerView; room: RoomView; name: (s: Seat) => string; premove: CardId | null }) {
   const t = useText(T);
   const lang = useLang();
   if (room.status !== "playing" || game.turn === null) return null;
@@ -303,6 +367,7 @@ function TurnHint({ game, room, name }: { game: PlayerView; room: RoomView; name
     text += t.turn.follow(cardLabel(led).slice(-1));
   }
   if (mine && game.phase === "trix") text += t.turn.stack;
+  if (!mine && premove) text += t.premove.queued(cardLabel(premove));
   return (
     <div className={`turn-hint ${mine ? "mine" : ""}`} dir={dirOf(lang)}>
       {text}

@@ -112,8 +112,22 @@
 .hand .card { width: 92px; transition: transform 0.12s, filter 0.12s; }
 .hand .card + .card { margin-left: -36px; }
 .hand .card.legal { transform: translateY(-10px); cursor: pointer; }
-@media (hover: hover) { .hand .card.legal:hover { transform: translateY(-22px); } }
+@media (hover: hover) { .hand .card.legal:hover { transform: translateY(-22px); } .hand .card.can-premove:hover { transform: translateY(-8px); } }
 .hand .card.illegal { filter: grayscale(0.6) brightness(0.55); }
+/* R-TABLE-14: drag and drop, premoves. */
+.hand .card { touch-action: none; position: relative; } /* keeps the normal overlap when a card is raised */
+.hand .card.legal, .hand .card.can-premove { cursor: grab; }
+.hand .card.premove {
+  transform: translateY(-14px); cursor: pointer;
+  box-shadow: 0 0 0 3px var(--k-brass-hi), 0 0 18px color-mix(in srgb, var(--k-brass-hi) 60%, transparent);
+}
+.hand .card.blocked { filter: brightness(0.72); }
+.hand .card.dragging { opacity: 0.3; }
+.hand .card.drag-ghost {
+  position: fixed; margin: 0; z-index: 70; pointer-events: none; cursor: grabbing; transition: none;
+  transform: rotate(-4deg) scale(1.06); box-shadow: 0 16px 34px rgba(0, 0, 0, 0.55);
+}
+.dropping .trick, .dropping .trix { outline: 2px dashed color-mix(in srgb, var(--k-brass-hi) 55%, transparent); outline-offset: 10px; border-radius: 26px; }
 
 .toast .contract-icon { width: 50px; }
 .peek { width: auto; }

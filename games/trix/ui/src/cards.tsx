@@ -1,3 +1,4 @@
+import type { ImgHTMLAttributes } from "react";
 import type { CardId, Contract } from "@games/trix";
 import { cardBackUrl } from "@platform/ui";
 import { cardLabel } from "./text";
@@ -10,10 +11,11 @@ const urls = (files: Record<string, string>) => Object.fromEntries(Object.entrie
 const CARD_URL = urls(import.meta.glob<string>("./assets/cards/*.png", { eager: true, query: "?url", import: "default" }));
 const CONTRACT_URL = urls(import.meta.glob<string>("./assets/contracts/*.png", { eager: true, query: "?url", import: "default" }));
 
-export function Card({ id, className = "", onClick, title }: { id: CardId | "back"; className?: string; onClick?: () => void; title?: string }) {
+export function Card({ id, className = "", onClick, title, ...rest }: { id: CardId | "back"; className?: string; onClick?: () => void; title?: string } & Omit<ImgHTMLAttributes<HTMLImageElement>, "id" | "onClick">) {
   const alt = id === "back" ? "card back" : cardLabel(id);
   return (
     <img
+      {...rest}
       className={`card ${onClick ? "clickable" : ""} ${className}`}
       src={id === "back" ? cardBackUrl : CARD_URL[id]}
       alt={alt}

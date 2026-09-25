@@ -115,6 +115,13 @@ The engine implements only what's written here. Every rule has an ID that the te
   3. Ownership only ever goes to a person who is connected right now, never to a bot. If nobody is connected, it passes as soon as someone is.
   4. A previous owner who comes back does **not** get it back automatically; the current owner can hand it back.
 - **R-TABLE-13:** **Play against bots.** From the first screen, a player can start a table against three bots of one level (easy, medium or hard). The game starts at once. The invite link still works, so a friend can take over a bot's seat (R-TABLE-10).
+- **R-TABLE-14:** **Playing a card, and premoves** (Seif, 2026-09-25, "like chess.com").
+  1. On your turn, play a card by tapping it or by dragging it onto the table.
+  2. **Premove:** before your turn, tap or drag a card to choose it in advance. Only you see it. When your turn comes it's played at once, if it's legal then. If it isn't (for example a suit was led that you still hold), it's cancelled, the card stays in your hand, and you're told.
+  3. One premove at a time. Tap it again, tap the table or right-click to cancel it; choosing another card replaces it. A premove ends with the contract.
+  4. A card that surely can't be played on your turn (the suit led is already known and you hold that suit) can't be premoved.
+  5. In ray and general, a premoved first card plays like any other: playing without declaring means you chose not to declare K♥ (R-RAY-3).
+  6. It works the same in the trix contract (placing a card on a stack).
 - **R-TABLE-9:** The interface speaks **English, French and Arabic** (Arabic right to left), chosen by each player (Seif, 2026-09-25). The table itself keeps its layout in every language, so seats go round the same way for everyone. Contracts keep their own names in every language: `dineri`, `damet`, `pli`, `farcha`, `ray`, `general`, `trix`. *(The French and Arabic wording is a first draft for Seif to review.)*
 
 ## 8. Bots
@@ -130,3 +137,4 @@ The engine implements only what's written here. Every rule has an ID that the te
 - 2026-09-24: Seif added R-GAME-11 (trix is due by the 6th pick), so trix can no longer be kept for the 7th pick to escape its ×4. R-GAME-5 now refers to it.
 - 2026-09-24: Bots built to the approved spec (docs/bots.md): R-BOT-3 replaces the placeholder (R-BOT-2); R-TABLE-10 gains bot levels; R-TABLE-7's stand-in plays at medium; R-TABLE-13 added (Play against bots, spec §8).
 - 2026-09-25: R-TABLE-9: English, French and Arabic, as Seif asked for the hub. The rules of play are unchanged.
+- 2026-09-25: Seif added R-TABLE-14 (drag and drop, premoves like chess.com): an impossible premove is cancelled with a notice; a premoved first card in ray plays without declaring; tap or drag both work.
