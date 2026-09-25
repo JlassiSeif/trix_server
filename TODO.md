@@ -10,8 +10,8 @@ A home for Tunisian card and table games, played with friends or against bots, a
 | Game | Status | Folder | Version |
 |---|---|---|---|
 | Trix | Live | [games/trix](games/trix) ([TODO](games/trix/TODO.md), [CHANGELOG](games/trix/CHANGELOG.md)) | 1.1.0 |
-| Chkobba, rami, Pablo, belote | **Next** (Seif, 2026-09-25: finish these four card games); each starts with a rules walkthrough with Seif | | |
-| Bent walad, loup garou, dominos, tekdheb, an Uno-style game, a Monopoly-style game, jhayech, the goose game | Wanted (Seif's friends, 2026-09-24) | | |
+| Chkobba (1v1, 2v2), rami (61, 71; 1v1, 2v2), Pablo (any number, casual), tekdheb (one or two decks, casual), belote (2v2; Tunis and Sfax variants, later) | **Next** (Seif, 2026-09-25); each starts with a rules walkthrough with Seif. Modes: `docs/play-modes.md` | | |
+| Bent walad, loup garou, dominos, an Uno-style game, a Monopoly-style game, jhayech, the goose game | Wanted (Seif's friends, 2026-09-24) | | |
 
 Adding a game: [docs/adding-a-game.md](docs/adding-a-game.md). How games look: [docs/game-look.md](docs/game-look.md).
 
@@ -26,17 +26,18 @@ Adding a game: [docs/adding-a-game.md](docs/adding-a-game.md). How games look: [
    1. The **French and Arabic** wording (hub pages: `platform/web/src/text.ts`; the Trix table: `games/trix/ui/src/text.ts`; shared bits: `platform/ui/src`). Open questions in Arabic: should "Dineri" have an Arabic spelling (the brand only has the Latin one, so the Arabic pages keep it in Latin letters)? Arabic-script names for the games and contracts, or keep them in Latin letters as now? Card words: a trick is "أكلة", a jack "J", a queen "Q".
    2. The **Privacy** and **Terms** pages (drafts, marked as such on the page) and **About**.
    3. A **contact email** for those pages (they say "an address is coming soon").
-3. **Architecture phase 2, fun for every game:** a settings panel (sounds, memes, music, bot chat, 18+ mode off by default), the sound system, chat bubbles and personas. Trix's content: `games/trix/TODO.md`.
-4. **Own machine before going public** (architecture §11). Which machine? Seif's Oracle free account?
-5. **Dineri's own card faces** (Seif, 2026-09-25: later). Trix uses GNOME Aisleriot's faces (GPL, credited on the About page and in the README).
-6. **Platform station:** the testing station lives in `games/trix/station`. Its game-independent parts (simulated players, attack scenarios) move to `platform/station` when the second game arrives.
+3. **Play modes, profiles and matchmaking** (Seif, 2026-09-25): casual custom rooms (2v2 among friends lives here), casual quick play, and ranked with ladders, divisions and seasons; profiles with handles, friends and parties. Spec `docs/play-modes.md` is a DRAFT waiting for Seif's approval. Decided: ranked 2v2 is duo only at first; Rami ranked is 71 only; Trix casual now, ranked later; friends by handle and friend link. Belote (Tunis and Sfax variants), Pablo and Tekdheb: rules later.
+4. **Architecture phase 2, fun for every game:** a settings panel (sounds, memes, music, bot chat, 18+ mode off by default), the sound system, chat bubbles and personas. Trix's content: `games/trix/TODO.md`.
+5. **Own machine before going public** (architecture §11). Which machine? Seif's Oracle free account?
+6. **Dineri's own card faces** (Seif, 2026-09-25: later). Trix uses GNOME Aisleriot's faces (GPL, credited on the About page and in the README).
+7. **Platform station:** the testing station lives in `games/trix/station`. Its game-independent parts (simulated players, attack scenarios) move to `platform/station` when the second game arrives.
 
 ## Roadmap (Seif, 2026-09-24): if this gets popular, this is where the value is
 The phases are in [docs/architecture.md](docs/architecture.md) §13. Applies to Trix, rami, chkobba and most card games.
 - **Accounts:** play as a guest, then keep your progress with an account (built 2026-09-25; waiting on Open 1).
 - **Player personas and voice lines:** personas people pick for themselves, and voice lines they trigger to talk to the table.
 - **Customization:** card backs, card faces and shapes, table art, and each player's own corner of the table.
-- **Ladders:** rankings per game, seasons.
+- **Ladders:** rankings per game, divisions, seasons (designed in `docs/play-modes.md`).
 - **Events:** tournaments where people win things (cosmetics, badges, sponsor prizes; never cash, which would be gambling law).
 - **A mobile app** (Seif, 2026-09-25: down the line): Dineri on the phone's home screen and in the app stores. The site already has its app icons and web manifest.
 - **Monetization:** the customizations above as the main income, plus sponsorship (see the 2026-09-24 conversation).
